@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
+from app.api.v1.api import api_router
+from app.api.v2.api import api_v2_router
+from app.middleware.versioning import APIVersionMiddleware, API_VERSIONS
+from app.middleware.rate_limit import RateLimitMiddleware
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -8,14 +12,24 @@ app = FastAPI(
 )
 
 # Set all CORS enabled origins
-if settings.BACKEND_CORS_ORIGINS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:8000"] + [str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# API versioning middleware – adds deprecation headers to v1 responses
+app.add_middleware(APIVersionMiddleware)
+
+# Rate limiting middleware (only in non-development or when explicitly enabled)
+if settings.RATE_LIMIT_ENABLED and not settings.is_development:
+    app.add_middleware(RateLimitMiddleware)
+
+# Mount API v1 & v2
+app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(api_v2_router, prefix="/api/v2")
 
 @app.get("/")
 def root():
@@ -24,3 +38,8 @@ def root():
 @app.get("/health")
 def health_check():
     return {"status": "ok", "env": settings.APP_ENV}
+
+@app.get("/api/versions")
+def api_versions():
+    """Return supported API versions and their status."""
+    return API_VERSIONS

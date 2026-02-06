@@ -1,0 +1,219 @@
+import os
+import uuid
+import aiofiles
+from typing import Any, List
+from uuid import UUID
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from sqlalchemy.orm import Session
+
+from app.api import deps
+from app.api.deps_permissions import check_document_permission
+from app.crud import crud_document
+from app.models.user import User
+from app.schemas.document import Document, DocumentCreate
+from app.config import settings
+from app.tasks.document_tasks import process_document_task
+from app.services.quota_enforcement import enforce_document_quota
+
+router = APIRouter()
+
+
+@router.get("/", response_model=List[Document])
+def list_documents(
+    db: Session = Depends(deps.get_db),
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    獲取當前租戶的文件列表
+    """
+    documents = crud_document.get_by_tenant(
+        db, tenant_id=current_user.tenant_id, skip=skip, limit=limit
+    )
+    return documents
+
+
+@router.post("/upload", response_model=Document)
+async def upload_document(
+    *,
+    db: Session = Depends(deps.get_db),
+    file: UploadFile = File(...),
+    current_user: User = Depends(deps.get_current_active_user),
+    _quota: None = Depends(enforce_document_quota),
+) -> Any:
+    """
+    上傳文件
+    - 支援 PDF(文字/掃描/表格)、DOCX、DOC、TXT、Excel、CSV、HTML、Markdown、RTF、JSON、圖片
+    - 非同步處理：解析、切片、向量化
+    - 權限：owner, admin, hr
+    """
+    # 權限檢查
+    check_document_permission(current_user, "create")
+    
+    # 1. 驗證文件類型（支援所有 Phase 0-2 格式）
+    from app.services.document_parser import DocumentParser, SUPPORTED_FORMATS
+    allowed_extensions = set(SUPPORTED_FORMATS.keys())
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"不支援的文件類型: {file_ext}。支援的類型: {', '.join(sorted(allowed_extensions))}"
+        )
+    
+    # 2. 偵測文件類型
+    try:
+        file_type = DocumentParser.detect_file_type(file.filename)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    
+    # 3. 檢查文件大小
+    file_content = await file.read()
+    file_size = len(file_content)
+    
+    if file_size > settings.MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"文件過大（{file_size / 1024 / 1024:.2f} MB），上限為 {settings.MAX_FILE_SIZE / 1024 / 1024} MB"
+        )
+    
+    if file_size == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="文件為空"
+        )
+    
+    # 4. 建立文件記錄
+    doc_in = DocumentCreate(
+        filename=file.filename,
+        file_type=file_type
+    )
+    
+    document = crud_document.create(
+        db,
+        obj_in=doc_in,
+        tenant_id=current_user.tenant_id,
+        uploaded_by=current_user.id,
+        file_size=file_size
+    )
+    
+    # 5. 儲存文件
+    upload_dir = os.path.join(settings.UPLOAD_DIR, str(current_user.tenant_id))
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    file_path = os.path.join(upload_dir, f"{document.id}{file_ext}")
+    
+    async with aiofiles.open(file_path, "wb") as f:
+        await f.write(file_content)
+    
+    # 6. 觸發背景任務處理
+    process_document_task.delay(
+        document_id=str(document.id),
+        file_path=file_path,
+        tenant_id=str(current_user.tenant_id)
+    )
+    
+    return document
+
+
+@router.get("/{document_id}", response_model=Document)
+def get_document(
+    *,
+    db: Session = Depends(deps.get_db),
+    document_id: UUID,
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    獲取文件詳情
+    """
+    document = crud_document.get(db, document_id=document_id)
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="文件不存在"
+        )
+    
+    # 權限檢查
+    if not current_user.is_superuser and document.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="無權限訪問此文件"
+        )
+    
+    return document
+
+
+@router.delete("/{document_id}")
+def delete_document(
+    *,
+    db: Session = Depends(deps.get_db),
+    document_id: UUID,
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    刪除文件
+    - 刪除資料庫記錄
+    - 刪除實體文件
+    - 刪除 Pinecone 向量
+    - 權限：owner, admin, hr
+    """
+    # 權限檢查
+    check_document_permission(current_user, "delete")
+    
+    document = crud_document.get(db, document_id=document_id)
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="文件不存在"
+        )
+    
+    # 權限檢查
+    if not current_user.is_superuser and document.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="無權限刪除此文件"
+        )
+    
+    # 刪除 Pinecone 向量
+    try:
+        from pinecone import Pinecone
+        pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+        index_name = f"tenant-{document.tenant_id}-kb"
+        
+        if index_name in pc.list_indexes().names():
+            index = pc.Index(index_name)
+            
+            # 刪除所有屬於此文件的向量
+            chunks = crud_document.get_chunks(db, document_id=document_id)
+            vector_ids = [chunk.vector_id for chunk in chunks if chunk.vector_id]
+            
+            if vector_ids:
+                index.delete(ids=vector_ids)
+    
+    except Exception as e:
+        # 記錄錯誤但不阻止刪除
+        print(f"刪除 Pinecone 向量失敗: {e}")
+    
+    # 刪除實體文件
+    try:
+        file_ext = os.path.splitext(document.filename)[1]
+        file_path = os.path.join(
+            settings.UPLOAD_DIR,
+            str(document.tenant_id),
+            f"{document.id}{file_ext}"
+        )
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        print(f"刪除實體文件失敗: {e}")
+    
+    # 刪除資料庫記錄
+    crud_document.delete(db, document_id=document_id)
+    
+    return {"message": "文件已刪除", "document_id": str(document_id)}

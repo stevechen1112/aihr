@@ -1,0 +1,17 @@
+from fastapi import APIRouter
+from app.api.v1.endpoints import auth, tenants, users, documents, kb, chat, audit, departments, admin, sso, feature_flags, tenant_admin, analytics
+
+api_router = APIRouter()
+api_router.include_router(auth.router, prefix="/auth", tags=["login"])
+api_router.include_router(sso.router, prefix="/auth", tags=["sso"])
+api_router.include_router(tenants.router, prefix="/tenants", tags=["tenants"])
+api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(documents.router, prefix="/documents", tags=["documents"])
+api_router.include_router(kb.router, prefix="/kb", tags=["knowledge-base"])
+api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
+api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
+api_router.include_router(departments.router, prefix="/departments", tags=["departments"])
+api_router.include_router(admin.router, prefix="/admin", tags=["platform-admin"])
+api_router.include_router(feature_flags.router, prefix="/feature-flags", tags=["feature-flags"])
+api_router.include_router(tenant_admin.router, prefix="/company", tags=["company-admin"])
+api_router.include_router(analytics.router, prefix="/analytics", tags=["cost-analytics"])

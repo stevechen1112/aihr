@@ -30,6 +30,27 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+  
+  worker:
+    build: .
+    command: celery -A app.celery_app worker --loglevel=info
+    volumes:
+      - .:/code
+    environment:
+      - POSTGRES_SERVER=db
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - web
 
 volumes:
   postgres_data:

@@ -1,25 +1,62 @@
-# 依賴套件
-node_modules/
-venv/
-__pycache__/
-*.pyc
+# =====================================================
+# UniHR SaaS — .gitignore
+# =====================================================
 
-# 環境變數
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+.eggs/
+
+# ---------- 虛擬環境 ----------
+.venv/
+venv/
+env/
+ENV/
+
+# ---------- 測試快取 ----------
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+
+# ---------- 環境變數（只保留 .env.example）----------
 .env
 .env.local
+.env.development
+.env.staging
+.env.production
 
-# 編輯器
+# ---------- 上傳資料（保留目錄結構）----------
+uploads/*
+!uploads/.gitkeep
+
+# ---------- 編輯器 / IDE ----------
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# 作業系統
+# ---------- 作業系統 ----------
 .DS_Store
 Thumbs.db
+._*
 
-# 建置輸出
+# ---------- 前端建置產出 ----------
 dist/
 build/
+node_modules/
 *.log
+*.tsbuildinfo
+
+# ---------- Docker ----------
+*.tar
+
+# ---------- 其他 ----------
+*.bak
+*.tmp

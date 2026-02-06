@@ -1,0 +1,26 @@
+# =====================================================
+# UniHR SaaS — .dockerignore
+# =====================================================
+.git
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+
+node_modules
+frontend/node_modules
+frontend/dist
+
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+uploads/*
+docs/
+*.md
+*.log
+.DS_Store
