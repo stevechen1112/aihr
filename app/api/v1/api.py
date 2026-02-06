@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, tenants, users, documents, kb, chat, audit, departments, admin, sso, feature_flags, tenant_admin, analytics
+from app.api.v1.endpoints import auth, tenants, users, documents, kb, chat, audit, departments, admin, sso, feature_flags, tenant_admin, analytics, public, custom_domains, subscription
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["login"])
@@ -15,3 +15,6 @@ api_router.include_router(admin.router, prefix="/admin", tags=["platform-admin"]
 api_router.include_router(feature_flags.router, prefix="/feature-flags", tags=["feature-flags"])
 api_router.include_router(tenant_admin.router, prefix="/company", tags=["company-admin"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["cost-analytics"])
+api_router.include_router(public.router, prefix="/public", tags=["public"])
+api_router.include_router(custom_domains.router, prefix="/domains", tags=["custom-domains"])
+api_router.include_router(subscription.router, prefix="/subscription", tags=["subscription"])

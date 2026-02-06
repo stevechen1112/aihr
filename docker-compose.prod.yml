@@ -34,6 +34,7 @@ services:
       - VOYAGE_API_KEY=${VOYAGE_API_KEY}
       - ADMIN_IP_WHITELIST_ENABLED=true
       - ADMIN_IP_WHITELIST=${ADMIN_IP_WHITELIST:-127.0.0.1,::1,172.16.0.0/12}
+      - ADMIN_TRUSTED_PROXY_IPS=${ADMIN_TRUSTED_PROXY_IPS:-127.0.0.1,::1}
       - RATE_LIMIT_ENABLED=true
     depends_on:
       db:
@@ -45,6 +46,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # ── Database ──
   db:
@@ -62,6 +71,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     # No external port exposure in production
 
   # ── Redis ──
@@ -76,6 +93,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
     # No external port exposure in production
 
   # ── Celery Worker ──
@@ -100,6 +125,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   # ── Client Frontend ──
   frontend:
@@ -109,6 +142,14 @@ services:
       - "80"
     depends_on:
       - web
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M
+        reservations:
+          cpus: '0.05'
+          memory: 16M
 
   # ── Admin Frontend ──
   admin-frontend:
@@ -118,7 +159,65 @@ services:
       - "80"
     depends_on:
       - web
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M
+        reservations:
+          cpus: '0.05'
+          memory: 16M
+
+  # ── Prometheus (T4-11) ──
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    restart: always
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    expose:
+      - "9090"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # ── Grafana (T4-11) ──
+  grafana:
+    image: grafana/grafana:10.4.0
+    restart: always
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://grafana.unihr.com
+    expose:
+      - "3000"
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
 
 volumes:
   postgres_data:
   redis_data:
+  prometheus_data:
+  grafana_data:

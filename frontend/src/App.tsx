@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
+import { BrandingProvider } from './contexts/BrandingContext'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import ChatPage from './pages/ChatPage'
@@ -10,6 +11,8 @@ import DepartmentsPage from './pages/DepartmentsPage'
 import CompanyPage from './pages/CompanyPage'
 import SSOCallbackPage from './pages/SSOCallbackPage'
 import SSOSettingsPage from './pages/SSOSettingsPage'
+import BrandingPage from './pages/BrandingPage'
+import SubscriptionPage from './pages/SubscriptionPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, loading } = useAuth()
@@ -32,6 +35,8 @@ function AppRoutes() {
         <Route path="departments" element={<DepartmentsPage />} />
         <Route path="company" element={<CompanyPage />} />
         <Route path="sso-settings" element={<SSOSettingsPage />} />
+        <Route path="branding" element={<BrandingPage />} />
+        <Route path="subscription" element={<SubscriptionPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -40,8 +45,10 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <BrandingProvider>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </BrandingProvider>
   )
 }

@@ -62,6 +62,24 @@ class UpdateUserRequest(BaseModel):
     status: Optional[str] = None  # active / suspended
 
 
+class BrandingSettings(BaseModel):
+    brand_name: Optional[str] = None
+    brand_logo_url: Optional[str] = None
+    brand_primary_color: Optional[str] = None
+    brand_secondary_color: Optional[str] = None
+    brand_favicon_url: Optional[str] = None
+
+
+class BrandingPublic(BaseModel):
+    """Public branding info (no auth required — used by login page)."""
+    brand_name: Optional[str] = None
+    brand_logo_url: Optional[str] = None
+    brand_primary_color: Optional[str] = None
+    brand_secondary_color: Optional[str] = None
+    brand_favicon_url: Optional[str] = None
+    tenant_name: str = ""
+
+
 class CompanyDashboard(BaseModel):
     company_name: str
     plan: Optional[str] = None
@@ -392,3 +410,61 @@ def company_usage_by_user(
         }
         for r in rows
     ]
+
+
+# ═══════════════════════════════════════════
+#  White-Label Branding (T4-3)
+# ═══════════════════════════════════════════
+
+@router.get("/branding", response_model=BrandingSettings)
+def get_branding(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """取得公司品牌設定"""
+    _ensure_owner_admin(current_user)
+    tenant = crud_tenant.get(db, current_user.tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return BrandingSettings(
+        brand_name=tenant.brand_name,
+        brand_logo_url=tenant.brand_logo_url,
+        brand_primary_color=tenant.brand_primary_color,
+        brand_secondary_color=tenant.brand_secondary_color,
+        brand_favicon_url=tenant.brand_favicon_url,
+    )
+
+
+@router.put("/branding", response_model=BrandingSettings)
+def update_branding(
+    branding: BrandingSettings,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """更新公司品牌設定（白標）"""
+    _ensure_owner_admin(current_user)
+
+    # Only pro / enterprise plans can customize branding
+    tenant = crud_tenant.get(db, current_user.tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    if tenant.plan == "free":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="白標功能需要 Pro 或 Enterprise 方案",
+        )
+
+    update_data = branding.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(tenant, field, value)
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
+    return BrandingSettings(
+        brand_name=tenant.brand_name,
+        brand_logo_url=tenant.brand_logo_url,
+        brand_primary_color=tenant.brand_primary_color,
+        brand_secondary_color=tenant.brand_secondary_color,
+        brand_favicon_url=tenant.brand_favicon_url,
+    )

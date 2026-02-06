@@ -50,12 +50,13 @@ echo ""
 echo "▸ Creating database dump..."
 
 if [[ "${MODE}" == "--direct" ]]; then
-    # Direct pg_dump (non-Docker)
+    # Direct pg_dump (non-Docker) — plain SQL to match restore
     pg_dump \
         -U "${POSTGRES_USER}" \
         -d "${POSTGRES_DB}" \
-        --format=custom \
-        --compress=9 \
+        --format=plain \
+        --no-owner \
+        --no-privileges \
         --verbose \
         -f "${BACKUP_FILE%.gz}"
 

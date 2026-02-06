@@ -3,7 +3,7 @@
 # UniHR Database Restore Script
 # ========================================================
 # Restores a PostgreSQL dump from a backup file.
-# Supports both Docker and direct pg_restore.
+# Supports both Docker and direct psql restore.
 #
 # Usage:
 #   chmod +x scripts/restore.sh

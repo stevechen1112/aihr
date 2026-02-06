@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, DateTime, Integer, Float, Enum, func
+from sqlalchemy import Column, String, Boolean, DateTime, Integer, Float, Enum, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base_class import Base
@@ -20,6 +20,14 @@ class Tenant(Base):
     monthly_token_limit = Column(Integer, nullable=True, default=None)  # 每月 token 上限
     quota_alert_threshold = Column(Float, default=0.8)                  # 配額告警閾值 (0~1)
     quota_alert_email = Column(String, nullable=True)                   # 告警通知信箱
+
+    # ── White-label Branding (T4-3) ──
+    brand_name = Column(String(100), nullable=True)                     # 自訂品牌名稱
+    brand_logo_url = Column(String(500), nullable=True)                 # Logo URL
+    brand_primary_color = Column(String(7), nullable=True)              # 主色（如 #2563eb）
+    brand_secondary_color = Column(String(7), nullable=True)            # 輔色
+    brand_favicon_url = Column(String(500), nullable=True)              # Favicon URL
+    custom_domain = Column(String(255), nullable=True, unique=True)     # 自訂域名
 
     # Relationships
     users = relationship("User", back_populates="tenant")

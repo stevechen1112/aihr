@@ -1,0 +1,157 @@
+# ========================================================
+# GitHub Actions CD — Deploy to Production
+# ========================================================
+# Triggers: manual dispatch only (with optional rollback)
+# Requires: approval from environment protection rules
+# ========================================================
+
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (defaults to latest staging)'
+        required: false
+        default: 'staging'
+        type: string
+      rollback_tag:
+        description: 'Rollback to specific tag (leave empty for normal deploy)'
+        required: false
+        default: ''
+        type: string
+      skip_backup:
+        description: 'Skip database backup before deploy'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
+jobs:
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false  # Never cancel production deploys
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine deploy tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.rollback_tag }}" ]; then
+            echo "tag=${{ inputs.rollback_tag }}" >> $GITHUB_OUTPUT
+            echo "🔄 Rolling back to: ${{ inputs.rollback_tag }}"
+          else
+            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+            echo "🚀 Deploying: ${{ inputs.image_tag }}"
+          fi
+
+      # ── Pre-deploy: Database Backup ──
+      - name: Database backup
+        if: ${{ !inputs.skip_backup }}
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/unihr
+            echo "📦 Creating pre-deploy backup..."
+            bash scripts/backup.sh --direct
+            echo "✅ Backup complete"
+
+      # ── Deploy ──
+      - name: Deploy to production
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/unihr
+            TAG="${{ steps.tag.outputs.tag }}"
+
+            echo "🏷️ Deploying tag: $TAG"
+
+            # Save current image digests for rollback reference
+            docker compose -f docker-compose.prod.yml images --format json > /tmp/pre-deploy-images.json 2>/dev/null || true
+
+            # Pull specific tag
+            docker pull ${{ env.IMAGE_PREFIX }}/backend:${TAG}
+            docker pull ${{ env.IMAGE_PREFIX }}/frontend:${TAG}
+            docker pull ${{ env.IMAGE_PREFIX }}/admin-frontend:${TAG}
+
+            # Tag as 'latest' for docker-compose
+            docker tag ${{ env.IMAGE_PREFIX }}/backend:${TAG} ${{ env.IMAGE_PREFIX }}/backend:latest
+            docker tag ${{ env.IMAGE_PREFIX }}/frontend:${TAG} ${{ env.IMAGE_PREFIX }}/frontend:latest
+            docker tag ${{ env.IMAGE_PREFIX }}/admin-frontend:${TAG} ${{ env.IMAGE_PREFIX }}/admin-frontend:latest
+
+            # Rolling restart
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            # Health check with retries
+            for i in $(seq 1 6); do
+              sleep 10
+              if curl -sf http://localhost:8000/health; then
+                echo ""
+                echo "✅ Health check passed on attempt $i"
+                break
+              fi
+              if [ $i -eq 6 ]; then
+                echo "❌ Health check failed after 60s"
+                exit 1
+              fi
+              echo "⏳ Waiting for health check... ($i/6)"
+            done
+
+            # Run database migrations
+            docker compose -f docker-compose.prod.yml exec -T web alembic upgrade head || true
+
+            # Clean up
+            docker image prune -f
+
+            echo "✅ Production deployment complete: $TAG"
+
+      # ── Post-deploy Smoke Test ──
+      - name: Smoke test
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            set -e
+            echo "🔍 Running smoke tests..."
+
+            # API health
+            curl -sf https://app.unihr.com/health | grep -q '"status":"ok"'
+            echo "  ✅ API health OK"
+
+            # Frontend loads
+            curl -sf -o /dev/null -w "%{http_code}" https://app.unihr.com/ | grep -q "200"
+            echo "  ✅ Frontend OK"
+
+            # Admin loads
+            curl -sf -o /dev/null -w "%{http_code}" https://admin.unihr.com/ | grep -q "200"
+            echo "  ✅ Admin frontend OK"
+
+            echo "✅ All smoke tests passed"
+
+      # ── Summary ──
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rollback:** ${{ inputs.rollback_tag || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backup:** ${{ inputs.skip_backup && 'Skipped' || 'Created' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Actor:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY

@@ -90,6 +90,25 @@ export const companyApi = {
   deactivateUser: (id: string) => api.delete(`/company/users/${id}`).then(r => r.data),
   usageSummary: () => api.get('/company/usage/summary').then(r => r.data),
   usageByUser: () => api.get('/company/usage/by-user').then(r => r.data),
+  branding: () => api.get('/company/branding').then(r => r.data),
+  updateBranding: (data: Record<string, unknown>) =>
+    api.put('/company/branding', data).then(r => r.data),
+}
+
+// ─── Public (no auth) ───
+export const publicApi = {
+  branding: (params?: { domain?: string; tenant_id?: string }) =>
+    api.get('/public/branding', { params }).then(r => r.data),
+}
+
+// ─── Subscription (T4-17) ───
+export const subscriptionApi = {
+  plans: () => api.get('/subscription/plans').then(r => r.data),
+  current: () => api.get('/subscription/current').then(r => r.data),
+  upgrade: (target_plan: string) => api.post('/subscription/upgrade', { target_plan }).then(r => r.data),
+  checkFeature: (feature: string) => api.get('/subscription/feature-check', { params: { feature } }).then(r => r.data),
+  exportUsage: (params?: Record<string, string>) =>
+    api.get('/subscription/usage/export', { params, responseType: 'blob' }).then(r => r.data),
 }
 
 // ─── SSO ───

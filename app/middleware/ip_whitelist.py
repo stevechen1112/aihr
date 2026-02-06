@@ -44,22 +44,26 @@ def parse_whitelist(raw: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Netw
     return networks
 
 
-def get_client_ip(request: Request) -> str:
-    """Extract real client IP, respecting X-Forwarded-For behind reverse proxy."""
-    # Trust X-Forwarded-For if set (Nginx / load balancer)
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        # First entry is the original client
-        return forwarded.split(",")[0].strip()
+def get_client_ip(
+    request: Request,
+    trusted_proxies: Sequence[ipaddress.IPv4Network | ipaddress.IPv6Network],
+) -> str:
+    """
+    Extract real client IP.
+    Only trust X-Forwarded-For / X-Real-IP when the immediate peer is trusted.
+    """
+    direct_ip = request.client.host if request.client else ""
 
-    x_real = request.headers.get("X-Real-IP")
-    if x_real:
-        return x_real.strip()
+    if direct_ip and is_ip_allowed(direct_ip, trusted_proxies):
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
 
-    # Direct connection
-    if request.client:
-        return request.client.host
-    return "0.0.0.0"
+        x_real = request.headers.get("X-Real-IP")
+        if x_real:
+            return x_real.strip()
+
+    return direct_ip or "0.0.0.0"
 
 
 def is_ip_allowed(
@@ -87,6 +91,8 @@ class AdminIPWhitelistMiddleware(BaseHTTPMiddleware):
         self.enabled: bool = getattr(settings, "ADMIN_IP_WHITELIST_ENABLED", False)
         raw_whitelist: str = getattr(settings, "ADMIN_IP_WHITELIST", "127.0.0.1,::1")
         self.whitelist = parse_whitelist(raw_whitelist)
+        raw_trusted: str = getattr(settings, "ADMIN_TRUSTED_PROXY_IPS", "127.0.0.1,::1")
+        self.trusted_proxies = parse_whitelist(raw_trusted)
 
         if self.enabled:
             logger.info(
@@ -109,7 +115,7 @@ class AdminIPWhitelistMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Check client IP
-        client_ip = get_client_ip(request)
+        client_ip = get_client_ip(request, self.trusted_proxies)
         if is_ip_allowed(client_ip, self.whitelist):
             return await call_next(request)
 

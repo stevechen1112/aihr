@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
-import { MessageSquare, FileText, BarChart3, LogOut, Shield, ClipboardList, Building2, KeyRound } from 'lucide-react'
+import { useBranding } from '../contexts/BrandingContext'
+import { MessageSquare, FileText, BarChart3, LogOut, Shield, ClipboardList, Building2, KeyRound, Palette, CreditCard } from 'lucide-react'
 import clsx from 'clsx'
 
 const navItems = [
@@ -10,17 +11,22 @@ const navItems = [
   { to: '/audit', icon: ClipboardList, label: '稽核日誌', roles: ['owner', 'admin'] },
   { to: '/departments', icon: Building2, label: '部門管理', roles: ['owner', 'admin', 'hr'] },
   { to: '/company', icon: Building2, label: '公司管理', roles: ['owner', 'admin'] },
+  { to: '/branding', icon: Palette, label: '品牌設定', roles: ['owner', 'admin'] },
+  { to: '/subscription', icon: CreditCard, label: '訂閱方案', roles: ['owner', 'admin'] },
   { to: '/sso-settings', icon: KeyRound, label: 'SSO 設定', roles: ['owner', 'admin'] },
 ]
 
 export default function Layout() {
   const { user, logout } = useAuth()
+  const branding = useBranding()
   const navigate = useNavigate()
 
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
+
+  const displayName = branding.brand_name || branding.tenant_name || 'UniHR'
 
   const visibleNav = navItems.filter(item => {
     return !item.roles || item.roles.includes(user?.role ?? '')
@@ -32,8 +38,12 @@ export default function Layout() {
       <aside className="flex w-60 flex-col border-r border-gray-200 bg-white">
         {/* Logo */}
         <div className="flex h-14 items-center gap-2 border-b border-gray-200 px-4">
-          <Shield className="h-6 w-6 text-blue-600" />
-          <span className="text-lg font-bold text-gray-900">UniHR</span>
+          {branding.brand_logo_url ? (
+            <img src={branding.brand_logo_url} alt={displayName} className="h-6 w-6 object-contain" />
+          ) : (
+            <Shield className="h-6 w-6" style={{ color: branding.brand_primary_color || '#2563eb' }} />
+          )}
+          <span className="text-lg font-bold text-gray-900">{displayName}</span>
         </div>
 
         {/* Navigation */}

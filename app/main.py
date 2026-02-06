@@ -6,6 +6,13 @@ from app.api.v2.api import api_v2_router
 from app.middleware.versioning import APIVersionMiddleware, API_VERSIONS
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.ip_whitelist import AdminIPWhitelistMiddleware
+from app.middleware.request_logging import RequestLoggingMiddleware
+from app.middleware.metrics import PrometheusMiddleware, metrics_endpoint, set_app_info
+from app.middleware.custom_domain import CustomDomainMiddleware
+from app.logging_config import setup_logging
+
+# ── Initialize structured logging ──
+setup_logging()
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -27,6 +34,15 @@ app.add_middleware(APIVersionMiddleware)
 # Admin API IP whitelist (T4-4) – blocks non-whitelisted IPs from admin endpoints
 app.add_middleware(AdminIPWhitelistMiddleware)
 
+# Request logging middleware (T4-12) – request ID, timing, context
+app.add_middleware(RequestLoggingMiddleware)
+
+# Prometheus metrics middleware (T4-11) – request count, latency, in-progress
+app.add_middleware(PrometheusMiddleware)
+
+# Custom domain resolution middleware (T4-6) – resolves tenant from Host header
+app.add_middleware(CustomDomainMiddleware)
+
 # Rate limiting middleware (only in non-development or when explicitly enabled)
 if settings.RATE_LIMIT_ENABLED and not settings.is_development:
     app.add_middleware(RateLimitMiddleware)
@@ -42,6 +58,10 @@ def root():
 @app.get("/health")
 def health_check():
     return {"status": "ok", "env": settings.APP_ENV}
+
+# Prometheus metrics endpoint (T4-11)
+app.add_route("/metrics", metrics_endpoint)
+set_app_info(version="1.0.0", env=settings.APP_ENV)
 
 @app.get("/api/versions")
 def api_versions():
