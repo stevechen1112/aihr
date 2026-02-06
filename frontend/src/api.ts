@@ -77,26 +77,6 @@ export const auditApi = {
     api.get('/audit/usage/export', { params: { format, ...params }, responseType: 'blob' }).then(r => r.data),
 }
 
-// ─── Platform Admin ───
-export const adminApi = {
-  dashboard: () => api.get('/admin/dashboard').then(r => r.data),
-  tenants: (params?: Record<string, string>) => api.get('/admin/tenants', { params }).then(r => r.data),
-  tenantStats: (id: string) => api.get(`/admin/tenants/${id}/stats`).then(r => r.data),
-  updateTenant: (id: string, data: Record<string, unknown>) => api.put(`/admin/tenants/${id}`, data).then(r => r.data),
-  users: (params?: Record<string, string>) => api.get('/admin/users', { params }).then(r => r.data),
-  systemHealth: () => api.get('/admin/system/health').then(r => r.data),
-  // ─ Quota Management (T3-1) ─
-  tenantQuota: (id: string) => api.get(`/admin/tenants/${id}/quota`).then(r => r.data),
-  updateQuota: (id: string, data: Record<string, unknown>) => api.put(`/admin/tenants/${id}/quota`, data).then(r => r.data),
-  applyPlan: (id: string, plan: string) => api.post(`/admin/tenants/${id}/quota/apply-plan?plan=${plan}`).then(r => r.data),
-  tenantAlerts: (id: string) => api.get(`/admin/tenants/${id}/alerts`).then(r => r.data),
-  checkAlerts: (id: string) => api.post(`/admin/tenants/${id}/alerts/check`).then(r => r.data),
-  quotaPlans: () => api.get('/admin/quota/plans').then(r => r.data),
-  // ─ Security Config (T3-3) ─
-  tenantSecurity: (id: string) => api.get(`/admin/tenants/${id}/security`).then(r => r.data),
-  updateSecurity: (id: string, data: Record<string, unknown>) => api.put(`/admin/tenants/${id}/security`, data).then(r => r.data),
-}
-
 // ─── Company Self-Service (T3-2) ───
 export const companyApi = {
   dashboard: () => api.get('/company/dashboard').then(r => r.data),
@@ -110,17 +90,6 @@ export const companyApi = {
   deactivateUser: (id: string) => api.delete(`/company/users/${id}`).then(r => r.data),
   usageSummary: () => api.get('/company/usage/summary').then(r => r.data),
   usageByUser: () => api.get('/company/usage/by-user').then(r => r.data),
-}
-
-// ─── Cost Analytics (T3-5) ───
-export const analyticsApi = {
-  dailyTrend: (params?: Record<string, string>) =>
-    api.get('/analytics/trends/daily', { params }).then(r => r.data),
-  monthlyByTenant: (params?: Record<string, string>) =>
-    api.get('/analytics/trends/monthly-by-tenant', { params }).then(r => r.data),
-  anomalies: (params?: Record<string, string>) =>
-    api.get('/analytics/anomalies', { params }).then(r => r.data),
-  budgetAlerts: () => api.get('/analytics/budget-alerts').then(r => r.data),
 }
 
 // ─── SSO ───

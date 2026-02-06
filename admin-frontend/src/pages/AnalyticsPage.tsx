@@ -57,7 +57,6 @@ function TrendTab() {
   if (loading) return <Loader />
   if (!data.length) return <Empty text="暫無趨勢資料" />
 
-  // Summary stats from latest
   const totalQueries = data.reduce((s: number, d: any) => s + (d.total_queries ?? 0), 0)
   const totalTokens = data.reduce((s: number, d: any) => s + (d.total_tokens ?? 0), 0)
   const totalCost = data.reduce((s: number, d: any) => s + (d.total_cost ?? 0), 0)
@@ -150,13 +149,12 @@ function TenantsTab() {
   if (loading) return <Loader />
   if (!data.length) return <Empty text="暫無租戶月度資料" />
 
-  // Collect unique tenant keys for bar stacking
   const tenantKeys = [...new Map(data.map((d: any) => {
     const key = d.tenant_id ?? d.tenant_name
     const label = d.tenant_name ?? String(key)
     return [String(key), label]
   })).entries()].map(([key, label]) => ({ key, label }))
-  // Group by month
+
   const months: Record<string, any> = {}
   data.forEach((d: any) => {
     const key = d.month
@@ -239,7 +237,6 @@ function AnomaliesTab() {
 
   return (
     <div className="space-y-6">
-      {/* Threshold selector */}
       <div className="flex items-center gap-2">
         <AlertTriangle className="h-4 w-4 text-amber-500" />
         <span className="text-sm text-gray-600">偏差閾值：</span>
@@ -385,13 +382,11 @@ export default function AnalyticsPage() {
   return (
     <div className="flex-1 overflow-auto p-6">
       <div className="mx-auto max-w-6xl space-y-6">
-        {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">成本分析</h1>
           <p className="mt-1 text-sm text-gray-500">平台使用量趨勢、租戶成本比較與異常偵測</p>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
           {tabs.map(({ key, label, icon: Icon }) => (
             <button
@@ -407,7 +402,6 @@ export default function AnalyticsPage() {
           ))}
         </div>
 
-        {/* Content */}
         {tab === 'trend' && <TrendTab />}
         {tab === 'tenants' && <TenantsTab />}
         {tab === 'anomalies' && <AnomaliesTab />}

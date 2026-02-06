@@ -52,5 +52,12 @@ services:
     depends_on:
       - web
 
+  admin-frontend:
+    build: ./admin-frontend
+    ports:
+      - "3002:80"
+    depends_on:
+      - web
+
 volumes:
   postgres_data:

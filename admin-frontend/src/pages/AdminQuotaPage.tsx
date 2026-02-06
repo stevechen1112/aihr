@@ -332,9 +332,9 @@ function SecurityTab({ tenantId }: { tenantId: string }) {
                   : 'border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
             >
-              {l === 'standard' && '🔵 標準'}
-              {l === 'enhanced' && '🟡 加強'}
-              {l === 'dedicated' && '🔴 專屬'}
+              {l === 'standard' && '標準'}
+              {l === 'enhanced' && '加強'}
+              {l === 'dedicated' && '專屬'}
             </button>
           ))}
         </div>

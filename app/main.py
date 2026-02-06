@@ -5,6 +5,7 @@ from app.api.v1.api import api_router
 from app.api.v2.api import api_v2_router
 from app.middleware.versioning import APIVersionMiddleware, API_VERSIONS
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.ip_whitelist import AdminIPWhitelistMiddleware
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -14,7 +15,7 @@ app = FastAPI(
 # Set all CORS enabled origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:8000"] + [str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:8000"] + [str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,6 +23,9 @@ app.add_middleware(
 
 # API versioning middleware – adds deprecation headers to v1 responses
 app.add_middleware(APIVersionMiddleware)
+
+# Admin API IP whitelist (T4-4) – blocks non-whitelisted IPs from admin endpoints
+app.add_middleware(AdminIPWhitelistMiddleware)
 
 # Rate limiting middleware (only in non-development or when explicitly enabled)
 if settings.RATE_LIMIT_ENABLED and not settings.is_development:

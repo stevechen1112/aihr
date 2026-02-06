@@ -76,6 +76,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_TENANT: int = 300        # requests / minute per tenant
     RATE_LIMIT_CHAT_PER_USER: int = 20      # chat requests / minute per user
 
+    # Admin API Network Isolation (T4-4)
+    ADMIN_IP_WHITELIST_ENABLED: bool = False   # Enable in production
+    ADMIN_IP_WHITELIST: str = "127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -7,10 +7,7 @@ import DocumentsPage from './pages/DocumentsPage'
 import UsagePage from './pages/UsagePage'
 import AuditLogsPage from './pages/AuditLogsPage'
 import DepartmentsPage from './pages/DepartmentsPage'
-import AdminPage from './pages/AdminPage'
-import AdminQuotaPage from './pages/AdminQuotaPage'
 import CompanyPage from './pages/CompanyPage'
-import AnalyticsPage from './pages/AnalyticsPage'
 import SSOCallbackPage from './pages/SSOCallbackPage'
 import SSOSettingsPage from './pages/SSOSettingsPage'
 
@@ -33,10 +30,7 @@ function AppRoutes() {
         <Route path="usage" element={<UsagePage />} />
         <Route path="audit" element={<AuditLogsPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
-        <Route path="admin" element={<AdminPage />} />
-        <Route path="admin/quotas" element={<AdminQuotaPage />} />
         <Route path="company" element={<CompanyPage />} />
-        <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="sso-settings" element={<SSOSettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
