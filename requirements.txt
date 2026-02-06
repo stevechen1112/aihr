@@ -30,6 +30,7 @@ beautifulsoup4==4.12.3
 lxml==5.1.0
 tenacity==8.2.3
 prometheus-client==0.21.0
+dnspython==2.6.1
 email-validator
 aiofiles==23.2.1
 python-magic==0.4.27

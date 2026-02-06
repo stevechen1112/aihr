@@ -20,6 +20,7 @@ from app.api import deps
 from app.models.custom_domain import CustomDomain
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.middleware.custom_domain import invalidate_domain_cache
 
 router = APIRouter()
 logger = logging.getLogger("unihr.custom_domain")
@@ -93,7 +94,7 @@ def add_domain(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """新增自訂域名（需 Enterprise 方案）"""
+    """新增自訂域名（需 Pro / Enterprise 方案）"""
     _ensure_owner_admin(current_user)
 
     # Plan check
@@ -122,6 +123,7 @@ def add_domain(
     db.add(record)
     db.commit()
     db.refresh(record)
+    invalidate_domain_cache(domain)
 
     logger.info("Custom domain added: %s for tenant %s", domain, current_user.tenant_id)
 
@@ -157,7 +159,13 @@ def verify_domain(
         raise HTTPException(status_code=404, detail="域名不存在")
 
     if record.verified:
-        return DomainVerifyResult(domain=record.domain, verified=True, message="域名已驗證")
+        if record.ssl_provisioned:
+            return DomainVerifyResult(domain=record.domain, verified=True, message="域名已驗證")
+        return DomainVerifyResult(
+            domain=record.domain,
+            verified=True,
+            message="域名已驗證，等待 SSL 憑證完成後即可啟用",
+        )
 
     # Attempt DNS TXT lookup
     verified = False
@@ -184,13 +192,21 @@ def verify_domain(
         from datetime import datetime, timezone
         record.verified = True
         record.verified_at = datetime.now(timezone.utc)
-        # Also update tenant's custom_domain field
-        tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
-        if tenant:
-            tenant.custom_domain = record.domain
+        if record.ssl_provisioned:
+            # Only activate custom domain after SSL is ready
+            tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+            if tenant:
+                tenant.custom_domain = record.domain
         db.commit()
+        invalidate_domain_cache(record.domain)
         logger.info("Domain verified: %s", record.domain)
-        return DomainVerifyResult(domain=record.domain, verified=True, message="域名驗證成功！")
+        if record.ssl_provisioned:
+            return DomainVerifyResult(domain=record.domain, verified=True, message="域名驗證成功！")
+        return DomainVerifyResult(
+            domain=record.domain,
+            verified=True,
+            message="域名驗證成功，等待 SSL 憑證完成後即可啟用",
+        )
     else:
         return DomainVerifyResult(
             domain=record.domain,
@@ -224,6 +240,7 @@ def delete_domain(
 
     db.delete(record)
     db.commit()
+    invalidate_domain_cache(domain_name)
 
     logger.info("Custom domain deleted: %s", domain_name)
     return {"message": f"域名 {domain_name} 已刪除"}

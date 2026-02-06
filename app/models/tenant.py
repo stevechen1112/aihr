@@ -29,6 +29,10 @@ class Tenant(Base):
     brand_favicon_url = Column(String(500), nullable=True)              # Favicon URL
     custom_domain = Column(String(255), nullable=True, unique=True)     # 自訂域名
 
+    # ── Multi-Region (T4-19) ──
+    region = Column(String(10), nullable=False, default="ap")            # ap / us / eu / jp
+    data_residency_note = Column(Text, nullable=True)                    # 資料落地說明（合規）
+
     # Relationships
     users = relationship("User", back_populates="tenant")
     documents = relationship("Document", back_populates="tenant")

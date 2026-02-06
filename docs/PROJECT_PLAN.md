@@ -1278,17 +1278,19 @@ unihr-saas/
 
 #### 4E. 效能與安全強化（第 5~8 週）🟢 可延後
 
-- ⬜ **T4-14** 負載測試
+- ✅ **T4-14** 負載測試 — 已完成（2026-02-07）
   - 使用 Locust 或 k6 建立負載測試腳本
   - 測試情境：100 concurrent users、1000 req/min
   - 找出瓶頸：DB 連線池、Celery worker 數、API 回應時間
   - 效能基準線建立與記錄
+  - 產出：`tests/load/locustfile.py`、`tests/load/k6_load_test.js`、`tests/load/README.md`
 
-- ⬜ **T4-15** 資料庫調優
+- ✅ **T4-15** 資料庫調優 — 已完成（2026-02-07）
   - 索引最佳化（常用查詢的 EXPLAIN ANALYZE）
   - 連線池調參（pool_size、max_overflow）
   - 讀寫分離準備（Read Replica 配置）
   - Slow query log 監控
+  - 產出：`alembic/versions/t4_15_db_indexes.py`、`scripts/db-performance.sh`、`configs/postgresql-tuning.conf`
 
 - ✅ **T4-16** 安全稽核與滲透測試
   - OWASP Top 10 逐項檢查
@@ -1304,17 +1306,18 @@ unihr-saas/
   - 用量計量匯出 API（給外部帳務系統或手動出帳用）
   - 注意：不做金流串接，仍為系統外處理
 
-- ⬜ **T4-18** Admin API 微服務化（進階）
+- ✅ **T4-18** Admin API 微服務化（進階）— 已完成（2026-02-07）
   - 將 `/api/v1/admin/*` 和 `/api/v1/analytics/*` 拆為獨立 FastAPI 服務
   - 獨立 Docker 容器，獨立埠號（只監聽內網）
   - PostgreSQL Read Replica（Admin 查詢走讀副本，避免影響客戶端效能）
   - 獨立 Redis 快取實例（Admin dashboard 數據快取）
   - 服務間通訊：內部 service token 認證
   - Docker Compose 新增 `admin-api` service 定義
+  - 產出：`admin_service/`（__init__.py、main.py、db.py、cache.py、Dockerfile）
 
-- ⬜ **T4-19** 多區域部署支援（進階）
+- ✅ **T4-19** 多區域部署支援（進階）— 已完成（2026-02-07）
   - 支援客戶資料落地要求（台灣、日本、東南亞等區域）
-  - Tenant 模型新增 `region` 欄位（us / ap / eu）
+  - Tenant 模型新增 `region` 欄位（ap / us / eu / jp）
   - 每個區域獨立的：
     - PostgreSQL 實例（資料不出區域）
     - Redis 實例
@@ -1323,27 +1326,31 @@ unihr-saas/
   - API Gateway 路由層根據 tenant region 轉發至對應區域服務
   - 跨區域共用：僅 Admin 平台管理台（讀取各區域資料的聚合視圖）
   - 合規文件：資料處理說明、儲存位置證明
+  - 產出：`app/services/region.py`、`app/middleware/region_routing.py`、`app/api/v1/endpoints/regions.py`、`docker-compose.region.yml`、`docs/MULTI_REGION.md`
 
 #### 4F. 文件與交付（第 7~10 週）🟢 可延後
 
-- ⬜ **T4-20** 使用者操作手冊
+- ✅ **T4-20** 使用者操作手冊 — 已完成（2026-02-07）
   - 租戶管理員手冊（公司設定、成員管理、文件上傳）
   - 一般員工使用手冊（問答操作、對話歷史）
   - 系統管理員手冊（平台監控、租戶管理、配額調整）
   - FAQ 與 Troubleshooting
+  - 產出：`docs/USER_MANUAL.md`
 
-- ⬜ **T4-21** API 開發者文件
+- ✅ **T4-21** API 開發者文件 — 已完成（2026-02-07）
   - OpenAPI 3.0 規格自動產生（FastAPI 內建）
   - API 使用範例（curl / Python / JavaScript）
   - Webhook 事件說明（如未來擴充）
   - Rate Limit 說明與最佳實踐
+  - 產出：`docs/API_DEVELOPER_GUIDE.md`
 
-- ⬜ **T4-22** 運維 SOP
+- ✅ **T4-22** 運維 SOP — 已完成（2026-02-07）
   - 部署流程 SOP
   - 回滾流程 SOP
   - 資料庫維護 SOP（migration、備份驗證）
   - 事故應對 SOP（P1/P2/P3 分級與處理流程）
   - 值班與通知排程
+  - 產出：`docs/OPS_SOP.md`
 
 ---
 

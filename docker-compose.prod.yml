@@ -159,6 +159,7 @@ services:
       - "80"
     depends_on:
       - web
+      - admin-api
     deploy:
       resources:
         limits:
@@ -167,6 +168,68 @@ services:
         reservations:
           cpus: '0.05'
           memory: 16M
+
+  # ── Admin API Microservice (T4-18) ──
+  admin-api:
+    build:
+      context: .
+      dockerfile: admin_service/Dockerfile
+    restart: always
+    expose:
+      - "8001"
+    environment:
+      - APP_ENV=production
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-unihr_saas}
+      - REDIS_HOST=redis
+      - ADMIN_REDIS_URL=redis://admin-redis:6379/0
+      - ADMIN_SERVICE_TOKEN=${ADMIN_SERVICE_TOKEN}
+      - SECRET_KEY=${SECRET_KEY}
+      # 啟用 Read Replica 時取消下行註解
+      # - ADMIN_DB_HOST=db-replica
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      admin-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  # ── Admin Redis (T4-18) ──
+  admin-redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --requirepass ${ADMIN_REDIS_PASSWORD:-}
+    volumes:
+      - admin_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
 
   # ── Prometheus (T4-11) ──
   prometheus:
@@ -219,5 +282,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  admin_redis_data:
   prometheus_data:
   grafana_data:
