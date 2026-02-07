@@ -65,7 +65,7 @@ class DataResidencyReport(BaseModel):
 #  Endpoints
 # ═══════════════════════════════════════════
 
-@router.get("/regions", response_model=List[RegionInfo])
+@router.get("/", response_model=List[RegionInfo])
 async def list_regions():
     """
     列出所有支援的部署區域。
@@ -75,7 +75,7 @@ async def list_regions():
     return get_all_regions()
 
 
-@router.get("/regions/current")
+@router.get("/current")
 async def get_current_region():
     """取得本機所在區域"""
     import os

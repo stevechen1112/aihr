@@ -184,7 +184,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB:-unihr_saas}
       - REDIS_HOST=redis
-      - ADMIN_REDIS_URL=redis://admin-redis:6379/0
+      - ADMIN_REDIS_URL=redis://:${ADMIN_REDIS_PASSWORD}@admin-redis:6379/0
       - ADMIN_SERVICE_TOKEN=${ADMIN_SERVICE_TOKEN}
       - SECRET_KEY=${SECRET_KEY}
       # 啟用 Read Replica 時取消下行註解
@@ -218,7 +218,7 @@ services:
     volumes:
       - admin_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "if [ -n \"$ADMIN_REDIS_PASSWORD\" ]; then redis-cli -a \"$ADMIN_REDIS_PASSWORD\" ping; else redis-cli ping; fi"]
       interval: 10s
       timeout: 5s
       retries: 5

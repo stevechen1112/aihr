@@ -45,6 +45,20 @@ async def verify_service_token(request: Request):
         )
 
 
+def _is_token_check_required(request: Request) -> bool:
+    if not ADMIN_SERVICE_TOKEN:
+        return False
+    if request.method == "OPTIONS":
+        return False
+    path = request.url.path
+    return not (
+        path == "/health"
+        or path == "/"
+        or path.startswith("/docs")
+        or path.startswith("/openapi.json")
+    )
+
+
 # ---------------------------------------------------------------------------
 # Lifespan
 # ---------------------------------------------------------------------------
@@ -64,6 +78,13 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def enforce_service_token(request: Request, call_next):
+    if _is_token_check_required(request):
+        await verify_service_token(request)
+    return await call_next(request)
 
 # CORS（僅允許 admin frontend）
 app.add_middleware(
