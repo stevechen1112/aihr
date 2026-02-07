@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../auth'
-import { Activity, Loader2, MessageSquare, FileText, Coins, Cpu } from 'lucide-react'
+import { Activity, Loader2, MessageSquare, Coins, Cpu } from 'lucide-react'
 import api from '../api'
 
 interface MyUsage {

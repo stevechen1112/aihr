@@ -37,7 +37,7 @@ export default function BrandingPage() {
     setSaving(true)
     setMsg('')
     try {
-      await companyApi.updateBranding(form)
+      await companyApi.updateBranding(form as unknown as Record<string, unknown>)
       setMsg('品牌設定已儲存成功！下次載入時將套用新設定。')
     } catch (e: any) {
       setMsg(e?.response?.data?.detail || '儲存失敗')

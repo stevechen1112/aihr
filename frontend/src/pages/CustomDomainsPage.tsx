@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '../auth'
-import { Globe, Plus, Trash2, Loader2, CheckCircle, XCircle, AlertCircle, Copy, RefreshCw, ExternalLink } from 'lucide-react'
+import { Globe, Plus, Trash2, Loader2, CheckCircle, AlertCircle, Copy, RefreshCw, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
 
@@ -20,7 +19,6 @@ interface VerifyResult {
 }
 
 export default function CustomDomainsPage() {
-  const { user } = useAuth()
   const [domains, setDomains] = useState<CustomDomain[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
