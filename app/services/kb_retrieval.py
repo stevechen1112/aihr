@@ -2,7 +2,7 @@
 UniHR 進階知識庫檢索服務 (Advanced Knowledge Base Retriever)
 
 功能：
-  - 語意檢索（Pinecone + Voyage Embedding）
+  - 語意檢索（pgvector + Voyage Embedding）
   - 關鍵字檢索（BM25）
   - 混合檢索（語意 + BM25 + RRF 融合）
   - 相似度閾值過濾
@@ -18,10 +18,11 @@ import re
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 
-from pinecone import Pinecone
 import voyageai
 
 from app.config import settings
+from app.db.session import SessionLocal
+from app.models.document import DocumentChunk, Document
 
 logger = logging.getLogger(__name__)
 
@@ -50,12 +51,9 @@ class KnowledgeBaseRetriever:
     """
 
     def __init__(self):
-        if not settings.PINECONE_API_KEY:
-            raise ValueError("PINECONE_API_KEY 未設定")
         if not settings.VOYAGE_API_KEY:
             raise ValueError("VOYAGE_API_KEY 未設定")
 
-        self.pc = Pinecone(api_key=settings.PINECONE_API_KEY)
         self.voyage_client = voyageai.Client(api_key=settings.VOYAGE_API_KEY)
 
         # Redis 快取
@@ -77,9 +75,6 @@ class KnowledgeBaseRetriever:
     # ─────────────────────────────────────────────
     # 公開 API
     # ─────────────────────────────────────────────
-
-    def get_index_name(self, tenant_id: UUID) -> str:
-        return f"tenant-{tenant_id}-kb"
 
     def search(
         self,
@@ -153,21 +148,33 @@ class KnowledgeBaseRetriever:
         return [self.search(tenant_id, q, top_k=top_k, mode=mode) for q in queries]
 
     def get_stats(self, tenant_id: UUID) -> Dict[str, Any]:
-        """獲取租戶知識庫統計資訊"""
+        """獲取租戶知識庫統計資訊（從 PostgreSQL 查詢）"""
+        db = SessionLocal()
         try:
-            idx_name = self.get_index_name(tenant_id)
-            if idx_name not in self.pc.list_indexes().names():
-                return {"exists": False, "vector_count": 0, "dimension": 0}
-            index = self.pc.Index(idx_name)
-            stats = index.describe_index_stats()
+            vector_count = (
+                db.query(DocumentChunk)
+                .filter(
+                    DocumentChunk.tenant_id == tenant_id,
+                    DocumentChunk.embedding.isnot(None),
+                )
+                .count()
+            )
+            total_chunks = (
+                db.query(DocumentChunk)
+                .filter(DocumentChunk.tenant_id == tenant_id)
+                .count()
+            )
             return {
-                "exists": True,
-                "vector_count": stats.total_vector_count,
-                "dimension": stats.dimension,
-                "namespaces": stats.namespaces,
+                "exists": total_chunks > 0,
+                "vector_count": vector_count,
+                "total_chunks": total_chunks,
+                "dimension": settings.EMBEDDING_DIMENSION,
+                "backend": "pgvector",
             }
         except Exception as e:
             return {"exists": False, "error": str(e)}
+        finally:
+            db.close()
 
     # ─────────────────────────────────────────────
     # 語意檢索
@@ -180,44 +187,57 @@ class KnowledgeBaseRetriever:
         top_k: int = 10,
         filter_dict: Optional[Dict] = None,
     ) -> List[Dict[str, Any]]:
+        """使用 pgvector 的 cosine distance 進行語意檢索"""
+        db = SessionLocal()
         try:
-            idx_name = self.get_index_name(tenant_id)
-            if idx_name not in self.pc.list_indexes().names():
-                return []
-
-            index = self.pc.Index(idx_name)
-
+            # 1. 取得查詢向量
             query_embedding = self.voyage_client.embed(
                 [query], model=settings.VOYAGE_MODEL, input_type="query",
             ).embeddings[0]
 
-            search_filter = {"tenant_id": str(tenant_id)}
-            if filter_dict:
-                search_filter.update(filter_dict)
-
-            results = index.query(
-                vector=query_embedding,
-                top_k=top_k,
-                include_metadata=True,
-                filter=search_filter,
+            # 2. 使用 pgvector cosine distance 搜尋
+            #    cosine_distance = 1 - cosine_similarity
+            #    所以 score = 1 - cosine_distance
+            query_obj = (
+                db.query(
+                    DocumentChunk,
+                    DocumentChunk.embedding.cosine_distance(query_embedding).label("distance"),
+                )
+                .filter(
+                    DocumentChunk.tenant_id == tenant_id,
+                    DocumentChunk.embedding.isnot(None),
+                )
+                .order_by(DocumentChunk.embedding.cosine_distance(query_embedding))
+                .limit(top_k)
             )
 
-            return [
-                {
-                    "id": m.id,
-                    "score": m.score,
-                    "content": m.metadata.get("content", ""),
-                    "document_id": m.metadata.get("document_id"),
-                    "filename": m.metadata.get("filename"),
-                    "chunk_index": m.metadata.get("chunk_index"),
-                    "metadata": m.metadata,
+            results = []
+            # 取得文件名映射
+            doc_map: Dict[UUID, str] = {}
+            for chunk, distance in query_obj.all():
+                # 懶查文件名
+                if chunk.document_id not in doc_map:
+                    doc = db.query(Document).filter(Document.id == chunk.document_id).first()
+                    doc_map[chunk.document_id] = doc.filename if doc else ""
+
+                score = round(1.0 - distance, 4)  # cosine similarity
+                results.append({
+                    "id": str(chunk.id),
+                    "score": score,
+                    "content": chunk.text or "",
+                    "document_id": str(chunk.document_id),
+                    "filename": doc_map.get(chunk.document_id, ""),
+                    "chunk_index": chunk.chunk_index,
+                    "metadata": chunk.metadata_json or {},
                     "source": "semantic",
-                }
-                for m in results.matches
-            ]
+                })
+
+            return results
         except Exception as e:
             logger.error(f"語意檢索錯誤: {e}")
             return []
+        finally:
+            db.close()
 
     # ─────────────────────────────────────────────
     # BM25 關鍵字檢索
@@ -235,9 +255,6 @@ class KnowledgeBaseRetriever:
             return []
 
         try:
-            from app.db.session import SessionLocal
-            from app.models.document import DocumentChunk, Document
-
             db = SessionLocal()
             try:
                 chunks = (

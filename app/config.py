@@ -39,13 +39,10 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
     
-    # Pinecone
-    PINECONE_API_KEY: str = ""
-    PINECONE_ENVIRONMENT: str = "gcp-starter"
-    
-    # Voyage AI
+    # Voyage AI + pgvector
     VOYAGE_API_KEY: str = ""
-    VOYAGE_MODEL: str = "voyage-law-2"
+    VOYAGE_MODEL: str = "voyage-4-lite"
+    EMBEDDING_DIMENSION: int = 1024
     
     # File Storage
     UPLOAD_DIR: str = "./uploads"

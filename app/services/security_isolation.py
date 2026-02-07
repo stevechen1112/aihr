@@ -1,9 +1,9 @@
 """
 高資安隔離方案（T3-3）
 支援 tenant-per-account 隔離等級：
-  - standard：共享基礎設施，邏輯隔離（預設）
-  - enhanced：獨立 Pinecone namespace，加密靜態資料
-  - dedicated：獨立 Pinecone index，獨立加密金鑰
+  - standard：共享基礎設施，邏輯隔離（預設）— pgvector 透過 SQL WHERE tenant_id 隔離
+  - enhanced：加密靜態資料
+  - dedicated：獨立加密金鑰
 """
 import uuid
 from typing import Optional
@@ -25,8 +25,9 @@ class TenantSecurityConfig(Base):
     tenant_id = Column(PGUUID(as_uuid=True), nullable=False, unique=True, index=True)
 
     isolation_level = Column(String, default="standard")  # standard, enhanced, dedicated
-    pinecone_index_name = Column(String, nullable=True)    # dedicated: 獨立 index
-    pinecone_namespace = Column(String, nullable=True)     # enhanced: 獨立 namespace
+    # 保留欄位供向後相容（pgvector 已透過 SQL WHERE tenant_id 隔離）
+    pinecone_index_name = Column(String, nullable=True)    # deprecated: 已改用 pgvector
+    pinecone_namespace = Column(String, nullable=True)     # deprecated: 已改用 pgvector
     encryption_key_id = Column(String, nullable=True)      # dedicated: 獨立加密金鑰 ID
     data_retention_days = Column(String, default="365")     # 資料保留天數
     ip_whitelist = Column(String, nullable=True)            # IP 白名單 (逗號分隔)
@@ -94,20 +95,18 @@ def create_or_update_security_config(
 
 def get_isolation_params(db: Session, tenant_id) -> dict:
     """
-    取得租戶的隔離參數，供 KnowledgeBaseRetriever 等服務使用。
-    回傳 {"index_name": ..., "namespace": ..., "isolation_level": ...}
+    取得租戶的隔離參數。
+    pgvector 透過 SQL WHERE tenant_id 進行隔離，不再需要 Pinecone index/namespace。
+    回傳 {"isolation_level": ..., "tenant_id": ...}
     """
     config = get_security_config(db, tenant_id)
     if not config:
-        # 預設 standard 隔離
         return {
             "isolation_level": "standard",
-            "index_name": None,
-            "namespace": str(tenant_id),
+            "tenant_id": str(tenant_id),
         }
 
     return {
         "isolation_level": config.isolation_level,
-        "index_name": config.pinecone_index_name,
-        "namespace": config.pinecone_namespace or str(tenant_id),
+        "tenant_id": str(tenant_id),
     }

@@ -1,7 +1,8 @@
 import uuid
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, func, Text, JSON
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, func, Text, JSON, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+from pgvector.sqlalchemy import Vector
 from app.db.base_class import Base
 
 class Document(Base):
@@ -38,10 +39,22 @@ class DocumentChunk(Base):
     chunk_index = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)
     chunk_hash = Column(String, index=True)
-    vector_id = Column(String, nullable=True)      # Pinecone vector ID
+    vector_id = Column(String, nullable=True)      # Legacy (Pinecone), kept for backwards compat
+    embedding = Column(Vector(1024), nullable=True)  # pgvector: voyage-4-lite 1024d
     metadata_json = Column(JSON, default={}) # page, section, etc.
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     document = relationship("Document", back_populates="chunks")
+
+    __table_args__ = (
+        # HNSW index for fast cosine similarity search
+        Index(
+            'ix_documentchunks_embedding_cosine',
+            embedding,
+            postgresql_using='hnsw',
+            postgresql_with={'m': 16, 'ef_construction': 64},
+            postgresql_ops={'embedding': 'vector_cosine_ops'},
+        ),
+    )

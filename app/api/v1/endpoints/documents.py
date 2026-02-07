@@ -198,7 +198,7 @@ def delete_document(
     刪除文件
     - 刪除資料庫記錄
     - 刪除實體文件
-    - 刪除 Pinecone 向量
+    - 刪除 pgvector 向量（透過 DB cascade 或手動刪除 chunks）
     - 權限：owner, admin, hr
     """
     # 權限檢查
@@ -219,25 +219,14 @@ def delete_document(
             detail="無權限刪除此文件"
         )
     
-    # 刪除 Pinecone 向量
+    # 刪除向量（pgvector: chunks 含有 embedding，直接刪除 DB 記錄即可）
     try:
-        from pinecone import Pinecone
-        pc = Pinecone(api_key=settings.PINECONE_API_KEY)
-        index_name = f"tenant-{document.tenant_id}-kb"
-        
-        if index_name in pc.list_indexes().names():
-            index = pc.Index(index_name)
-            
-            # 刪除所有屬於此文件的向量
-            chunks = crud_document.get_chunks(db, document_id=document_id)
-            vector_ids = [chunk.vector_id for chunk in chunks if chunk.vector_id]
-            
-            if vector_ids:
-                index.delete(ids=vector_ids)
-    
+        chunks = crud_document.get_chunks(db, document_id=document_id)
+        for chunk in chunks:
+            db.delete(chunk)
+        db.commit()
     except Exception as e:
-        # 記錄錯誤但不阻止刪除
-        print(f"刪除 Pinecone 向量失敗: {e}")
+        print(f"刪除向量 chunks 失敗: {e}")
     
     # 刪除實體文件
     try:

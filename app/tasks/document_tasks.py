@@ -3,7 +3,6 @@ import time
 from typing import List
 from uuid import UUID
 import voyageai
-from pinecone import Pinecone
 from app.celery_app import celery_app
 from app.config import settings
 from app.db.session import SessionLocal
@@ -18,8 +17,8 @@ def process_document_task(self, document_id: str, file_path: str, tenant_id: str
     背景任務：處理文件
     1. 解析文件
     2. 切片
-    3. 向量化
-    4. 寫入 Pinecone
+    3. 向量化（Voyage voyage-4-lite）
+    4. 寫入 pgvector（PostgreSQL）
     """
     db = SessionLocal()
     
@@ -85,7 +84,7 @@ def process_document_task(self, document_id: str, file_path: str, tenant_id: str
             )
         )
         
-        # 6. 向量化
+        # 6. 向量化（Voyage voyage-4-lite）
         if not settings.VOYAGE_API_KEY:
             raise ValueError("VOYAGE_API_KEY 未設定")
         
@@ -105,64 +104,28 @@ def process_document_task(self, document_id: str, file_path: str, tenant_id: str
             all_embeddings.extend(result.embeddings)
             time.sleep(0.5)  # Rate limiting
         
-        # 7. 寫入 Pinecone
-        if not settings.PINECONE_API_KEY:
-            raise ValueError("PINECONE_API_KEY 未設定")
+        # 7. 寫入 pgvector（直接儲存到 PostgreSQL）
+        from app.models.document import DocumentChunk
         
-        pc = Pinecone(api_key=settings.PINECONE_API_KEY)
-        
-        # 租戶專屬 index 名稱
-        index_name = f"tenant-{tenant_id}-kb"
-        
-        # 檢查 index 是否存在，不存在則建立
-        if index_name not in pc.list_indexes().names():
-            pc.create_index(
-                name=index_name,
-                dimension=1024,  # Voyage Law 2 的維度
-                metric="cosine",
-                spec={
-                    "serverless": {
-                        "cloud": "aws",
-                        "region": "us-east-1"
-                    }
-                }
-            )
-            time.sleep(5)  # 等待 index 初始化
-        
-        index = pc.Index(index_name)
-        
-        # 準備向量資料
-        vectors = []
         for idx, (chunk, embedding) in enumerate(zip(chunks, all_embeddings)):
             vector_id = f"{document_id}-chunk-{idx}"
             
-            # 儲存 chunk 到資料庫
-            crud_document.create_chunk(
-                db,
+            # 建立 chunk 記錄，同時包含文字和向量
+            db_chunk = DocumentChunk(
                 document_id=UUID(document_id),
                 tenant_id=UUID(tenant_id),
                 chunk_index=idx,
-                content=chunk,
-                vector_id=vector_id
-            )
-            
-            vectors.append({
-                "id": vector_id,
-                "values": embedding,
-                "metadata": {
-                    "document_id": document_id,
-                    "tenant_id": tenant_id,
+                text=chunk,
+                vector_id=vector_id,
+                embedding=embedding,  # pgvector: 直接存入向量
+                metadata_json={
                     "filename": doc.filename,
                     "chunk_index": idx,
-                    "content": chunk[:500]  # 只存前 500 字元到 metadata
                 }
-            })
+            )
+            db.add(db_chunk)
         
-        # 批次上傳到 Pinecone
-        batch_size = 100
-        for i in range(0, len(vectors), batch_size):
-            batch = vectors[i:i+batch_size]
-            index.upsert(vectors=batch)
+        db.commit()
         
         # 8. 更新狀態：完成
         crud_document.update(
@@ -190,7 +153,6 @@ def process_document_task(self, document_id: str, file_path: str, tenant_id: str
             "status": "completed",
             "document_id": document_id,
             "chunks": len(chunks),
-            "index_name": index_name
         }
         
     except Exception as e:
