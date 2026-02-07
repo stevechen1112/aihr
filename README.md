@@ -45,8 +45,9 @@ UniHR 採用**雙層架構**：
 
 ### 帳號與權限
 - 五級角色：`superadmin` → `owner` → `admin` → `employee` → `viewer`
-- JWT 認證 + SSO（Google / Microsoft OAuth 2.0）
+- JWT 認證 + SSO（Google / Microsoft OAuth 2.0，Email 自動識別組織）
 - 三層速率限制（IP / 使用者 / 租戶）
+- 前端 RoleGuard 路由守衛 + 後端統一 DI 權限檢查
 
 ### 企業知識庫
 - 文件上傳 → 解析 → 切片 → 向量化 → 存入 Pinecone，全流程背景處理（Celery）
@@ -263,18 +264,23 @@ G. 企業覆蓋率    ███████████████████�
 
 | 頁面 | 路徑 | 說明 |
 |------|------|------|
-| 登入 | `/login` | JWT 登入 + Google / Microsoft SSO |
+| 登入 | `/login` | JWT 登入 + SSO（Email 自動識別組織） |
 | SSO 回調 | `/login/callback` | OAuth 2.0 回調處理 |
-| AI 問答 | `/chat` | 對話式介面，即時串流回答 |
-| 知識庫管理 | `/documents` | 拖放上傳、狀態追蹤、格式偵測 |
+| AI 問答 | `/` | 對話式介面，即時串流回答 |
+| 知識庫管理 | `/documents` | 拖放上傳、狀態追蹤、部門篩選 |
+| 我的用量 | `/my-usage` | 個人使用統計（所有角色） |
 | 公司設定 | `/company` | 租戶基本資訊、SSO 設定 |
-| 部門管理 | `/departments` | 部門 CRUD |
+| 部門管理 | `/departments` | 樹狀層級結構、可收合節點 |
 | 員工管理 | `/admin` | 使用者帳號管理、角色指派 |
 | 用量統計 | `/usage` | Token / 查詢 / 儲存用量圖表 |
 | 配額管理 | `/admin/quota` | 租戶配額設定與告警（超級管理員） |
 | 分析儀表板 | `/analytics` | 使用趨勢、熱門問題、部門統計 |
 | 稽核日誌 | `/audit` | 操作紀錄查詢、篩選、匯出 |
-| SSO 設定 | `/admin/sso` | Google / Microsoft OAuth 設定 |
+| SSO 設定 | `/sso-settings` | Google / Microsoft OAuth 設定 |
+| 品牌設定 | `/branding` | Logo / 色彩 / 名稱 + 即時預覽 |
+| 訂閱方案 | `/subscription` | 方案對比 + Modal 確認升級 |
+| 自訂域名 | `/custom-domains` | 域名 CRUD + DNS 驗證引導 |
+| 區域資訊 | `/regions` | 資料駐留區域 + 合規資訊 |
 
 ---
 
@@ -642,19 +648,24 @@ unihr-saas/
 │       ├── types.ts               # TypeScript 型別
 │       ├── components/
 │       │   └── Layout.tsx         # 側邊欄導覽 Layout
-│       └── pages/                 # 頁面元件（12 頁）
-│           ├── LoginPage.tsx
+│       └── pages/                 # 頁面元件（17 頁）
+│           ├── LoginPage.tsx       #   登入 + SSO Email 自動識別
 │           ├── ChatPage.tsx
-│           ├── DocumentsPage.tsx
+│           ├── DocumentsPage.tsx    #   文件管理 + 部門篩選
+│           ├── MyUsagePage.tsx      # ★ 個人用量統計
 │           ├── CompanyPage.tsx
 │           ├── AdminPage.tsx
 │           ├── AdminQuotaPage.tsx
 │           ├── AnalyticsPage.tsx
 │           ├── AuditLogsPage.tsx
-│           ├── DepartmentsPage.tsx
+│           ├── DepartmentsPage.tsx  #   樹狀層級結構
 │           ├── UsagePage.tsx
 │           ├── SSOSettingsPage.tsx
-│           └── SSOCallbackPage.tsx
+│           ├── SSOCallbackPage.tsx
+│           ├── BrandingPage.tsx     #   品牌設定 + 即時預覽
+│           ├── SubscriptionPage.tsx #   訂閱 + Modal 升級確認
+│           ├── CustomDomainsPage.tsx # ★ 自訂域名 CRUD
+│           └── RegionsPage.tsx     # ★ 區域與資料駐留
 ├── admin-frontend/                # ★ 管理員後台前端
 │   └── src/
 │       ├── App.tsx                # 後台路由
@@ -700,6 +711,7 @@ unihr-saas/
 │   ├── USER_MANUAL.md             # ★ 使用者操作手冊
 │   ├── OPS_SOP.md                 # ★ 維運 SOP
 │   ├── MULTI_REGION.md            # ★ 多區域部署指南
+│   ├── UX_FLOW_REVIEW.md          # ★ UX 流程全角色檢視報告
 │   ├── PHASE2_TEST_REPORT.md      #   Phase 2 測試報告
 │   └── PHASE3_TEST_REPORT.md      #   Phase 3 測試報告
 ├── docker-compose.yml             # 開發環境
@@ -717,7 +729,7 @@ unihr-saas/
 └── requirements-test.txt          # ★ 測試依賴
 ```
 
-> ★ 標記為 Phase 4 新增項目
+> ★ 標記為 Phase 4/5 新增項目
 
 ---
 
@@ -730,6 +742,25 @@ unihr-saas/
 | Phase 3 | 管理功能：配額 + 分析 + 前端頁面 | ✅ 完成 |
 | Phase 3+ | 文件引擎升級：19 格式 + 進階檢索 + 混合搜尋 | ✅ 完成 |
 | Phase 4 | 生產化：前後台分離 + CI/CD + 白標 + 監控 + 安全稽核 + 微服務化 + 多區域（22 任務） | ✅ 完成 |
+| Phase 5 | UX 流程審查：全角色 UX 檢視 + 11 項修復（路由守衛 + SSO 自動識別 + 權限 DI 統一 + UI 增強） | ✅ 完成 |
+
+### Phase 5 任務清單（UX 流程全角色檢視 — 11/11 完成）
+
+| 項目 | 說明 | 優先級 | 狀態 |
+|------|------|--------|------|
+| UX-1 | `CustomDomainsPage` — 自訂域名 CRUD + DNS 驗證引導 | P0 | ✅ |
+| UX-2 | `RegionsPage` — 區域資訊 + 資料駐留合規顯示 | P0 | ✅ |
+| UX-3 | `RoleGuard` 前端路由角色守衛，保護所有管理頁面 | P1 | ✅ |
+| UX-4 | `MyUsagePage` — 所有角色個人用量統計 | P2 | ✅ |
+| UX-5 | SSO 登入改 Email 自動識別 + 後端 discover 端點 | P2 | ✅ |
+| UX-6 | 文件頁面新增部門篩選功能（前端 + 後端） | P2 | ✅ |
+| UX-7 | 品牌設定新增即時側邊欄預覽 | P3 | ✅ |
+| UX-8 | 訂閱升級改用 Modal 確認（方案對比 / 價格 / 功能差異） | P3 | ✅ |
+| UX-9 | 後端權限統一為 DI — 19 端點改用 `Depends(require_admin)` | P3 | ✅ |
+| UX-10 | 部門管理改為樹狀層級結構（可收合 + parent_id 選擇） | P3 | ✅ |
+| UX-11 | UX 流程檢視報告文件（`docs/UX_FLOW_REVIEW.md`） | — | ✅ |
+
+> 完整報告含 Mermaid 流程圖、角色可見性矩陣、問題盤點，請參閱 [docs/UX_FLOW_REVIEW.md](docs/UX_FLOW_REVIEW.md)。
 
 ### Phase 4 任務清單（22/22 完成）
 
@@ -770,6 +801,7 @@ unihr-saas/
 | [docs/USER_MANUAL.md](docs/USER_MANUAL.md) | 使用者操作手冊 |
 | [docs/OPS_SOP.md](docs/OPS_SOP.md) | 維運標準作業程序（SOP） |
 | [docs/MULTI_REGION.md](docs/MULTI_REGION.md) | 多區域部署指南 |
+| [docs/UX_FLOW_REVIEW.md](docs/UX_FLOW_REVIEW.md) | UX 流程全角色檢視報告（含 Mermaid 圖表） |
 | [tests/load/README.md](tests/load/README.md) | 負載測試說明 |
 
 ---
