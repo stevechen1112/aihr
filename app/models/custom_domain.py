@@ -12,7 +12,7 @@ from app.db.base_class import Base
 
 class CustomDomain(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False, index=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     domain = Column(String(255), unique=True, nullable=False, index=True)
 
     # DNS Verification
