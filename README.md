@@ -51,12 +51,15 @@ UniHR 採用**雙層架構**：
 
 ### 企業知識庫
 - 文件上傳 → 解析 → 切片 → 向量化 → 存入 pgvector（PostgreSQL），全流程背景處理（Celery）
-- 支援 **19 種檔案格式**（詳見[文件處理引擎](#文件處理引擎)）
+- 支援 **23 種檔案格式**（詳見[文件處理引擎](#文件處理引擎)），含 LlamaParse 智慧解析
 - 品質報告系統：每份文件自動評估解析品質（excellent / good / fair / poor / failed）
 
 ### AI 問答（Orchestrator）
-- 混合檢索：語意搜尋 + BM25 關鍵字 + RRF 融合 + Voyage Rerank
+- 混合檢索：語意搜尋 + BM25 關鍵字（jieba 分詞）+ RRF 融合 + Voyage Rerank
+- HyDE 查詢擴展：生成假設性 HR 文件，提升語意檢索召回率
+- LLM 答案生成：OpenAI GPT-4o-mini 根據檢索內容生成回答，僅引用提供資料，不自行捏造
 - 同時查詢公司知識庫與 Core 勞動法，合併回答並標註來源
+- Chunk 去重：per-document SHA256 雜湊，避免重複向量化
 - 對話歷史保存，支援多輪追問
 
 ### 稽核與合規
@@ -89,8 +92,8 @@ UniHR 採用**雙層架構**：
 │  │              Service Layer                          │    │
 │  │  ┌─────────────┐  ┌──────────────┐  ┌───────────┐  │    │
 │  │  │  Retriever   │  │ Doc Parser   │  │  Quota    │  │    │
-│  │  │Semantic+BM25 │  │ 19 Formats   │  │Enforcement│  │    │
-│  │  │ +RRF+Rerank  │  │ +OCR+Tables  │  │ +Alerts   │  │    │
+│  │  │Semantic+BM25 │  │ 23 Formats   │  │Enforcement│  │    │
+│  │  │+HyDE+Rerank  │  │+LlamaParse   │  │ +Alerts   │  │    │
 │  │  └──────┬───────┘  └──────┬───────┘  └───────────┘  │    │
 │  └─────────│─────────────────│─────────────────────────┘    │
 └────────────│─────────────────│──────────────────────────────┘
@@ -101,11 +104,11 @@ UniHR 採用**雙層架構**：
      │  HNSW index   │  │ (bg tasks) │
      └───────────────┘  └─────┬──────┘
                               │
-┌─────────────┐  ┌────────────▼──┐  ┌────────────┐
-│ PostgreSQL  │  │    Redis      │  │ Voyage AI  │
-│   15        │  │ 7 (queue+     │  │ Embedding  │
-│ (primary DB)│  │    cache)     │  │ + Rerank   │
-└─────────────┘  └───────────────┘  └────────────┘
+┌─────────────┐  ┌───────────────┐  ┌────────────┐  ┌────────────┐
+│ PostgreSQL  │  │    Redis      │  │ Voyage AI  │  │ OpenAI     │
+│   15        │  │ 7 (queue+     │  │ Embedding  │  │ GPT-4o-mini│
+│ (primary DB)│  │    cache)     │  │ + Rerank   │  │ +LlamaParse│
+└─────────────┘  └───────────────┘  └────────────┘  └────────────┘
 ```
 
 ---
@@ -124,7 +127,9 @@ UniHR 採用**雙層架構**：
 | 背景任務 | Celery | 5.3.6 |
 | 向量資料庫 | pgvector（PostgreSQL 擴充，HNSW 索引） | 0.3.0+ |
 | Embedding 模型 | Voyage AI (`voyage-4-lite`, 1024 維) | 0.3.7 |
-| LLM | OpenAI GPT | 1.12.0 |
+| LLM | OpenAI GPT-4o-mini (`gpt-4o-mini`) | 1.12.0 |
+| 文件解析 | LlamaParse（智慧解析 10 種格式）+ 原生解析器降級 | 0.6.0+ |
+| 中文分詞 | jieba（BM25 詞級分詞） | 0.42.1+ |
 | 認證 | JWT (python-jose) + OAuth 2.0 SSO | — |
 
 ### 前端
@@ -152,25 +157,30 @@ UniHR 採用**雙層架構**：
 
 ## 文件處理引擎
 
-自建多格式解析引擎（**非** LlamaIndex / LangChain），直接調用底層解析庫，精簡可控。
+混合解析架構：**LlamaParse** 作為優先解析引擎（支援 10 種格式），品質不足時自動降級至原生解析器。原生解析器直接調用底層解析庫，精簡可控。
 
-### 支援格式（19 種）
+### 支援格式（23 種）
 
 | 階段 | 格式 | 解析庫 | 特殊能力 |
 |------|------|--------|----------|
-| Phase 0 | PDF（文字型） | `pypdf` | 基礎文字提取 |
-| Phase 0 | DOCX | `python-docx` | 標題層級 + 表格提取 |
-| Phase 0 | DOC | `antiword` / `LibreOffice` | 舊格式降級處理 |
+| Phase 0 | PDF（文字型） | LlamaParse → `pypdf` | 智慧解析 + 降級 |
+| Phase 0 | DOCX | LlamaParse → `python-docx` | 標題層級 + 表格提取 |
+| Phase 0 | DOC | LlamaParse → `antiword` / `LibreOffice` | 舊格式降級處理 |
 | Phase 0 | TXT | stdlib + `chardet` | 6 種編碼自動偵測 + BOM 清除 |
-| Phase 1 | PDF（掃描型） | `pytesseract` + `pdf2image` | 中英文 OCR |
-| Phase 1 | PDF（表格） | `pdfplumber` | 結構化表格提取 |
-| Phase 1 | Excel（.xlsx/.xls） | `openpyxl` | 多工作表解析 |
+| Phase 1 | PDF（掃描型） | LlamaParse → `pytesseract` + `pdf2image` | 中英文 OCR |
+| Phase 1 | PDF（表格） | LlamaParse → `pdfplumber` | 結構化表格提取 |
+| Phase 1 | Excel（.xlsx/.xls） | LlamaParse → `openpyxl` | 多工作表解析 |
 | Phase 1 | CSV | stdlib | 自動分隔符號偵測 |
 | Phase 1 | HTML | `BeautifulSoup` + `lxml` | script/style/nav 清除、XSS 防護 |
 | Phase 1 | Markdown | stdlib | 標題結構保留 |
-| Phase 2 | RTF | `striprtf` | RTF 控制碼清除 |
+| Phase 2 | RTF | LlamaParse → `striprtf` | RTF 控制碼清除 |
 | Phase 2 | JSON | stdlib | 結構化資料 → 可讀文字 |
 | Phase 2 | 圖片（JPG/PNG/TIFF/BMP） | `pytesseract` + `Pillow` | OCR + 辨識信心度 |
+| Phase 6 | PPT/PPTX | LlamaParse → `python-pptx` | 投影片文字 + 備註提取 |
+| Phase 6 | 網頁（URL） | `trafilatura` | 網頁主要內容擷取，去除廣告/導覽 |
+| Phase 6 | 手寫文件 | LlamaParse（優先）+ `pytesseract` | 手寫體 OCR + 辨識信心度 |
+
+> LlamaParse 支援格式：PDF、DOCX、DOC、PPTX、PPT、XLSX、XLS、RTF、EPUB、HWPX。該 10 種格式會優先使用 LlamaParse，若品質分數 < 0.5 則自動降級至原生解析器。
 
 ### 智慧切片器（TextChunker）
 
@@ -194,6 +204,8 @@ UniHR 採用**雙層架構**：
 | `encoding_detected` | 偵測到的編碼 |
 | `warnings` / `errors` | 解析警告與錯誤 |
 | `suggestions` | 改善建議 |
+| `parse_engine` | 使用的解析引擎（`llamaparse` / `native`） |
+| `handwriting_detected` | 是否偵測到手寫體 |
 
 ### Benchmark 自評結果
 
@@ -226,8 +238,10 @@ G. 企業覆蓋率    ███████████████████�
 ### 管線流程
 
 ```
-查詢 → ┬─ 語意檢索 (pgvector + Voyage Embedding)
-       └─ BM25 關鍵字檢索 (PostgreSQL chunks)
+查詢 → HyDE 查詢擴展（語意/混合模式）
+       ↓
+       ┬─ 語意檢索 (pgvector + Voyage Embedding，使用 HyDE 擴展查詢)
+       └─ BM25 關鍵字檢索 (jieba 詞級分詞，使用原始查詢)
               ↓
        RRF 融合排序 (score = Σ 1/(k + rank), k=60)
               ↓
@@ -236,13 +250,19 @@ G. 企業覆蓋率    ███████████████████�
        相似度閾值過濾
               ↓
        結果（含 content / score / source / metadata）
+              ↓
+       LLM 答案生成（OpenAI GPT-4o-mini，僅引用檢索內容）
 ```
 
 ### 特色
 
-- **中英文混合分詞器**：中文逐字切分 + 英文按空格分詞，支援 `NT$850,000` 等格式
+- **jieba 中文詞級分詞**：精準中文分詞（非逐字切分），支援 `NT$850,000` 等格式
+- **HyDE 查詢擴展**：自動生成 50-100 字假設性 HR 文件，提升語意檢索召回率（僅語意/混合模式啟用）
+- **LLM 答案生成**：OpenAI GPT-4o-mini 根據檢索結果生成回答，嚴格限制僅引用提供資料
+- **Chunk 去重**：per-document SHA256 雜湊，避免重複內容進入向量庫
 - **Voyage Rerank**：使用 `rerank-2` 模型對候選結果重新排序
 - **Redis 查詢快取**：SHA256 cache key，5 分鐘 TTL，文件變更時自動失效
+- **metadata 過濾**：支援依 `filter_dict` SQL 層級過濾 metadata 欄位
 - **批次搜尋**：`batch_search()` 支援多查詢並行
 - **Graceful Degradation**：Redis / BM25 不可用時自動降級
 
@@ -486,7 +506,12 @@ uvicorn main:app --reload --port 8001
 |------|------|------|------|
 | `SECRET_KEY` | JWT 簽名密鑰 | ✅ | — |
 | `OPENAI_API_KEY` | OpenAI API Key | ✅ | — |
+| `OPENAI_MODEL` | OpenAI 模型名稱 | — | `gpt-4o-mini` |
+| `OPENAI_TEMPERATURE` | LLM 生成溫度 | — | `0.3` |
+| `OPENAI_MAX_TOKENS` | LLM 最大輸出 Token | — | `1500` |
 | `VOYAGE_API_KEY` | Voyage AI（Embedding + Rerank） | ✅ | — |
+| `LLAMAPARSE_API_KEY` | LlamaParse 文件解析 API Key | — | — |
+| `LLAMAPARSE_ENABLED` | 啟用 LlamaParse 解析 | — | `true` |
 | `EMBEDDING_DIMENSION` | 向量維度 | — | `1024` |
 | `POSTGRES_SERVER` | PostgreSQL 主機 | — | `localhost` |
 | `POSTGRES_USER` | 資料庫使用者 | — | `postgres` |
@@ -620,9 +645,9 @@ unihr-saas/
 │   ├── schemas/                   # Pydantic Schemas
 │   ├── crud/                      # 資料存取層
 │   ├── services/                  # 核心業務邏輯
-│   │   ├── document_parser.py     #   多格式解析引擎（~950 行）
-│   │   ├── kb_retrieval.py        #   進階檢索引擎（~470 行）
-│   │   ├── chat_orchestrator.py   #   問答協調器
+│   │   ├── document_parser.py     #   多格式解析引擎（LlamaParse + 原生，~1320 行）
+│   │   ├── kb_retrieval.py        #   進階檢索引擎（jieba + HyDE，~595 行）
+│   │   ├── chat_orchestrator.py   #   問答協調器（LLM 生成 + 降級）
 │   │   ├── core_client.py         #   Core API 客戶端
 │   │   ├── quota_enforcement.py   #   配額執行
 │   │   ├── quota_alerts.py        #   配額告警
@@ -743,6 +768,19 @@ unihr-saas/
 | Phase 3+ | 文件引擎升級：19 格式 + 進階檢索 + 混合搜尋 | ✅ 完成 |
 | Phase 4 | 生產化：前後台分離 + CI/CD + 白標 + 監控 + 安全稽核 + 微服務化 + 多區域（22 任務） | ✅ 完成 |
 | Phase 5 | UX 流程審查：全角色 UX 檢視 + 11 項修復（路由守衛 + SSO 自動識別 + 權限 DI 統一 + UI 增強） | ✅ 完成 |
+| Phase 6 | AI 引擎升級：LlamaParse 智慧解析 + jieba 分詞 + HyDE 查詢擴展 + LLM 答案生成 + Chunk 去重 | ✅ 完成 |
+
+### Phase 6 任務清單（AI 引擎升級 — 7/7 完成）
+
+| 項目 | 說明 | 優先級 | 狀態 |
+|------|------|--------|------|
+| AI-1 | LlamaParse 整合：10 種格式智慧解析 + 品質降級機制 | P0 | ✅ |
+| AI-2 | PPT/PPTX 解析支援（LlamaParse + python-pptx 降級） | P0 | ✅ |
+| AI-3 | URL 網頁內容擷取（trafilatura） | P1 | ✅ |
+| AI-4 | jieba 中文詞級分詞（取代逐字切分） | P0 | ✅ |
+| AI-5 | HyDE 查詢擴展（僅語意/混合模式，不影響 BM25） | P1 | ✅ |
+| AI-6 | LLM 答案生成（OpenAI GPT-4o-mini + Fallback 模板） | P0 | ✅ |
+| AI-7 | Per-document Chunk 去重（SHA256 雜湊） | P2 | ✅ |
 
 ### Phase 5 任務清單（UX 流程全角色檢視 — 11/11 完成）
 

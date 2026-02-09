@@ -39,10 +39,20 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
     
+    # OpenAI（用於 Generation 回答生成 + HyDE 查詢擴展）
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"  # Generation 使用的模型
+    OPENAI_TEMPERATURE: float = 0.3     # 回答生成溫度（低 = 更精確）
+    OPENAI_MAX_TOKENS: int = 1500       # 回答最大 token 數
+
     # Voyage AI + pgvector
     VOYAGE_API_KEY: str = ""
     VOYAGE_MODEL: str = "voyage-4-lite"
     EMBEDDING_DIMENSION: int = 1024
+
+    # LlamaParse（高品質文檔解析 — 跨頁表格、手寫 OCR、複雜佈局）
+    LLAMAPARSE_API_KEY: str = ""
+    LLAMAPARSE_ENABLED: bool = True  # 設為 False 可強制使用內建解析器
     
     # File Storage
     UPLOAD_DIR: str = "./uploads"

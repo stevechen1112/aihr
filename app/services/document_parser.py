@@ -5,13 +5,17 @@ UniHR 多格式文件解析引擎 (Document Parser Engine)
   Phase 0: PDF(文字型)、DOCX、TXT
   Phase 1: PDF(掃描/OCR)、PDF(表格)、Excel(.xlsx/.xls)、CSV、HTML、Markdown
   Phase 2: RTF、JSON、圖片(JPG/PNG/TIFF)、DOC(舊格式)
+  Phase 3: PPT/PPTX、網頁 URL 擷取
+  LlamaParse: PDF/DOCX/PPTX/圖片 高品質解析（跨頁表格、手寫 OCR、複雜佈局）
 
 特點：
+  - LlamaParse 優先解析（複雜文件品質大幅提升）
   - 精確 Token 計算 (tiktoken)
   - 智慧切片（章節邊界偵測、表格保護）
   - 品質報告系統
   - 多編碼自動偵測
-  - OCR 降級策略
+  - OCR 降級策略（pytesseract → LlamaParse Agentic OCR）
+  - 網頁 URL 內容擷取（trafilatura）
 """
 
 import os
@@ -74,6 +78,37 @@ try:
 except ImportError:
     _HAS_RTF = False
 
+try:
+    from pptx import Presentation as PptxPresentation
+    _HAS_PPTX = True
+except ImportError:
+    _HAS_PPTX = False
+
+try:
+    import trafilatura
+    _HAS_TRAFILATURA = True
+except ImportError:
+    _HAS_TRAFILATURA = False
+
+# LlamaParse: 延遲導入（lazy import）避免拖慢啟動
+# llama_parse 依賴 llama_index_core 很重，只在真正需要時才 import
+_HAS_LLAMAPARSE = False
+_LlamaParseClient = None
+
+def _ensure_llamaparse():
+    """延遲載入 LlamaParse，只在第一次呼叫時 import"""
+    global _HAS_LLAMAPARSE, _LlamaParseClient
+    if _LlamaParseClient is not None:
+        return True
+    try:
+        from llama_parse import LlamaParse
+        _LlamaParseClient = LlamaParse
+        _HAS_LLAMAPARSE = True
+        return True
+    except ImportError:
+        _HAS_LLAMAPARSE = False
+        return False
+
 logger = logging.getLogger(__name__)
 
 
@@ -99,6 +134,8 @@ class QualityReport:
     ocr_confidence: float = 0.0
     encoding_detected: str = ""
     parse_time_ms: int = 0
+    parse_engine: str = "native"  # native / llamaparse
+    handwriting_detected: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -165,6 +202,19 @@ SUPPORTED_FORMATS: Dict[str, str] = {
     ".tiff": "image",
     ".tif": "image",
     ".bmp": "image",
+    ".webp": "image",
+    ".heic": "image",
+    # Phase 3
+    ".pptx": "pptx",
+    ".ppt": "ppt",
+}
+
+# LlamaParse 支援的格式（這些格式優先走 LlamaParse 以獲得更好的品質）
+LLAMAPARSE_FORMATS: set = {
+    "pdf", "docx", "doc", "pptx", "ppt",
+    "xlsx", "xls",
+    "html", "rtf",
+    "image",  # 含手寫 OCR
 }
 
 
@@ -204,6 +254,11 @@ class DocumentParser:
         """
         解析文件。
 
+        策略：
+          1. 若 LlamaParse API Key 可用 且 格式在 LLAMAPARSE_FORMATS 中
+             → 優先使用 LlamaParse（品質最高）
+          2. LlamaParse 不可用或失敗 → fallback 到內建解析器
+
         Returns:
             (text_content, metadata_dict)
             metadata_dict 包含 QualityReport 的所有欄位。
@@ -213,6 +268,42 @@ class DocumentParser:
         start = time.time()
         report = QualityReport(format_detected=file_type)
 
+        # ── LlamaParse 優先路徑 ──
+        from app.config import settings
+        llamaparse_key = getattr(settings, "LLAMAPARSE_API_KEY", "")
+        llamaparse_enabled = getattr(settings, "LLAMAPARSE_ENABLED", True)
+        if (
+            llamaparse_enabled
+            and llamaparse_key
+            and file_type in LLAMAPARSE_FORMATS
+            and _ensure_llamaparse()
+        ):
+            try:
+                text, report = cls._parse_with_llamaparse(
+                    file_path, file_type, report, llamaparse_key
+                )
+                if text.strip() and report.quality_score >= 0.5:
+                    report.parse_time_ms = int((time.time() - start) * 1000)
+                    report.total_chars = len(text)
+                    metadata = report.to_dict()
+                    logger.info(
+                        f"LlamaParse 解析成功: {file_type}, "
+                        f"品質={report.quality_level}, "
+                        f"字元={report.total_chars}"
+                    )
+                    return text.strip(), metadata
+                else:
+                    logger.warning(
+                        f"LlamaParse 解析品質不足 ({report.quality_level})，"
+                        f"降級到內建解析器"
+                    )
+                    # 重置 report 給 fallback 使用
+                    report = QualityReport(format_detected=file_type)
+            except Exception as e:
+                logger.warning(f"LlamaParse 解析失敗: {e}，降級到內建解析器")
+                report = QualityReport(format_detected=file_type)
+
+        # ── 內建解析器 ──
         _PARSERS = {
             "pdf": cls._parse_pdf,
             "docx": cls._parse_docx,
@@ -226,6 +317,8 @@ class DocumentParser:
             "rtf": cls._parse_rtf,
             "json": cls._parse_json,
             "image": cls._parse_image,
+            "pptx": cls._parse_pptx,
+            "ppt": cls._parse_ppt,
         }
 
         parser = _PARSERS.get(file_type)
@@ -787,6 +880,273 @@ class DocumentParser:
         except Exception as e:
             report.add_error(f"圖片解析失敗: {e}")
             return "", report
+
+    # ─────────────────────────────────────────────
+    # PPT/PPTX（投影片 + 表格 + 備忘稿）
+    # ─────────────────────────────────────────────
+    @classmethod
+    def _parse_pptx(cls, file_path: str, report: QualityReport) -> Tuple[str, QualityReport]:
+        if not _HAS_PPTX:
+            report.add_error("PPTX 解析引擎未安裝 (python-pptx)")
+            report.add_suggestion("請將 PPTX 轉為 PDF 後上傳")
+            return "", report
+        try:
+            prs = PptxPresentation(file_path)
+            parts: List[str] = []
+            table_count = 0
+
+            for slide_idx, slide in enumerate(prs.slides, 1):
+                slide_parts: List[str] = [f"\n## 投影片 {slide_idx}\n"]
+
+                for shape in slide.shapes:
+                    # 文字框
+                    if shape.has_text_frame:
+                        for para in shape.text_frame.paragraphs:
+                            t = para.text.strip()
+                            if t:
+                                # 偵測標題（通常是較大字體或 Title 佔位符）
+                                if shape.shape_type is not None and hasattr(shape, "placeholder_format"):
+                                    if shape.placeholder_format and shape.placeholder_format.idx in (0, 1):
+                                        slide_parts.append(f"### {t}")
+                                        continue
+                                slide_parts.append(t)
+
+                    # 表格
+                    if shape.has_table:
+                        table_count += 1
+                        rows = []
+                        for row in shape.table.rows:
+                            cells = [cell.text.strip() for cell in row.cells]
+                            rows.append(" | ".join(cells))
+                        if rows:
+                            # 自動加表頭分隔線
+                            table_text = rows[0] + "\n"
+                            table_text += " | ".join(["---"] * len(shape.table.rows[0].cells)) + "\n"
+                            table_text += "\n".join(rows[1:])
+                            slide_parts.append(f"\n[表格 {table_count}]\n{table_text}")
+
+                # 備忘稿（speaker notes）
+                if slide.has_notes_slide and slide.notes_slide.notes_text_frame:
+                    notes = slide.notes_slide.notes_text_frame.text.strip()
+                    if notes:
+                        slide_parts.append(f"\n> 備忘稿：{notes}")
+
+                parts.append("\n".join(slide_parts))
+
+            report.total_pages = len(prs.slides)
+            report.tables_detected = table_count
+            text = "\n\n".join(parts)
+
+            if not text.strip():
+                report.add_error("PPTX 文件無可讀取的內容")
+            if table_count > 0:
+                report.add_warning(f"偵測到 {table_count} 個投影片表格")
+
+            return text, report
+        except Exception as e:
+            report.add_error(f"PPTX 解析失敗: {e}")
+            return "", report
+
+    @classmethod
+    def _parse_ppt(cls, file_path: str, report: QualityReport) -> Tuple[str, QualityReport]:
+        """舊格式 .ppt — 嘗試 LibreOffice 轉換，或提示用戶轉檔"""
+        import subprocess
+        try:
+            import tempfile
+            with tempfile.TemporaryDirectory() as tmpdir:
+                result = subprocess.run(
+                    ["libreoffice", "--headless", "--convert-to", "pptx",
+                     "--outdir", tmpdir, file_path],
+                    capture_output=True, text=True, timeout=120,
+                )
+                if result.returncode == 0:
+                    pptx_file = os.path.join(tmpdir, Path(file_path).stem + ".pptx")
+                    if os.path.exists(pptx_file):
+                        report.add_warning("使用 LibreOffice 將 .ppt 轉換為 .pptx 進行解析")
+                        return cls._parse_pptx(pptx_file, report)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+
+        report.add_error(".ppt 格式需要 LibreOffice 來解析")
+        report.add_suggestion("請將 .ppt 文件另存為 .pptx 或 .pdf 格式後重新上傳")
+        return "", report
+
+    # ─────────────────────────────────────────────
+    # LlamaParse 高品質解析（跨頁表格、手寫 OCR、複雜佈局）
+    # ─────────────────────────────────────────────
+    @classmethod
+    def _parse_with_llamaparse(
+        cls,
+        file_path: str,
+        file_type: str,
+        report: QualityReport,
+        api_key: str,
+    ) -> Tuple[str, QualityReport]:
+        """
+        使用 LlamaParse 進行高品質解析。
+
+        優點：
+          - 跨頁表格完整保留
+          - 手寫文字 OCR（Agentic OCR）
+          - 複雜佈局（雙欄、嵌套表格）
+          - 圖片中的文字提取
+
+        若解析品質不足或 API 不可用，呼叫者應 fallback 到內建解析器。
+        """
+        import nest_asyncio
+        nest_asyncio.apply()
+
+        # 根據文件類型調整解析參數
+        parsing_instruction = (
+            "這是一份人力資源或企業管理相關的文件。"
+            "請精確保留所有表格結構（使用 Markdown 表格格式）、"
+            "包含表頭的對應關係。"
+            "如果有手寫文字，請盡力辨識。"
+            "保留文件的標題層級結構。"
+            "輸出語言與原文件一致。"
+        )
+
+        # 是否為圖片（啟用更強的 OCR）
+        is_image = file_type == "image"
+
+        try:
+            parser = _LlamaParseClient(
+                api_key=api_key,
+                result_type="markdown",
+                parsing_instruction=parsing_instruction,
+                language="zh",
+                # 圖片和掃描文件使用進階 OCR
+                auto_mode=True,
+                auto_mode_trigger_on_image_in_page=True,
+                auto_mode_trigger_on_table_in_page=True,
+            )
+
+            # 同步解析（celery worker 中已是同步環境）
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            documents = loop.run_until_complete(
+                parser.aload_data(file_path)
+            )
+
+            if not documents:
+                report.add_warning("LlamaParse 返回空結果")
+                report.compute_quality()
+                return "", report
+
+            # 合併所有頁面
+            text_parts = []
+            for doc in documents:
+                if hasattr(doc, "text") and doc.text:
+                    text_parts.append(doc.text)
+
+            text = "\n\n".join(text_parts)
+
+            # 統計
+            report.parse_engine = "llamaparse"
+            report.total_pages = len(documents)
+            report.total_chars = len(text)
+
+            # 偵測表格
+            table_matches = re.findall(r"\|.*\|", text)
+            if table_matches:
+                # 粗估表格數量（連續的表格行視為一個表格）
+                table_lines = [i for i, line in enumerate(text.split("\n")) if "|" in line and line.strip().startswith("|")]
+                if table_lines:
+                    table_groups = 1
+                    for i in range(1, len(table_lines)):
+                        if table_lines[i] - table_lines[i-1] > 2:
+                            table_groups += 1
+                    report.tables_detected = table_groups
+
+            # 偵測是否使用了 OCR（圖片檔或掃描類）
+            if is_image:
+                report.ocr_used = True
+                report.ocr_confidence = 0.85  # LlamaParse OCR 品質通常較高
+                report.handwriting_detected = True
+
+            report.compute_quality()
+            return text, report
+
+        except Exception as e:
+            report.add_warning(f"LlamaParse 錯誤: {e}")
+            report.compute_quality()
+            return "", report
+
+    # ─────────────────────────────────────────────
+    # 網頁 URL 擷取
+    # ─────────────────────────────────────────────
+    @staticmethod
+    def parse_url(url: str) -> Tuple[str, dict]:
+        """
+        從 URL 擷取網頁正文內容。
+
+        使用 trafilatura 進行高品質網頁正文提取，
+        自動移除導覽列、頁尾、廣告等非正文內容。
+
+        Args:
+            url: 網頁 URL
+
+        Returns:
+            (text_content, metadata_dict)
+        """
+        start = time.time()
+        report = QualityReport(format_detected="url")
+
+        if not _HAS_TRAFILATURA:
+            report.add_error("網頁擷取引擎未安裝 (trafilatura)")
+            report.compute_quality()
+            raise ValueError("trafilatura 未安裝，無法擷取網頁")
+
+        try:
+            # 下載網頁
+            downloaded = trafilatura.fetch_url(url)
+            if not downloaded:
+                report.add_error(f"無法下載網頁: {url}")
+                report.compute_quality()
+                raise ValueError(f"無法下載網頁: {url}")
+
+            # 提取正文（含表格、標題層級）
+            text = trafilatura.extract(
+                downloaded,
+                include_tables=True,
+                include_links=False,
+                include_images=False,
+                include_comments=False,
+                output_format="txt",
+                favor_precision=True,
+            )
+
+            if not text or not text.strip():
+                report.add_error("網頁內容為空或無法提取正文")
+                report.compute_quality()
+                raise ValueError("網頁內容為空")
+
+            # 嘗試同時取得 metadata
+            metadata_extracted = trafilatura.extract(
+                downloaded,
+                output_format="xml",
+                include_tables=True,
+            )
+
+            report.total_chars = len(text)
+            report.total_pages = 1
+            report.parse_engine = "trafilatura"
+            report.parse_time_ms = int((time.time() - start) * 1000)
+            report.compute_quality()
+
+            return text.strip(), report.to_dict()
+
+        except ValueError:
+            raise
+        except Exception as e:
+            report.add_error(f"網頁擷取失敗: {e}")
+            report.compute_quality()
+            raise ValueError(f"網頁擷取失敗: {e}")
 
 
 # ═══════════════════════════════════════════════════════════

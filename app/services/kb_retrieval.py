@@ -39,6 +39,18 @@ try:
 except ImportError:
     _HAS_BM25 = False
 
+try:
+    import jieba
+    _HAS_JIEBA = True
+except ImportError:
+    _HAS_JIEBA = False
+
+try:
+    import openai as openai_lib
+    _HAS_OPENAI = True
+except ImportError:
+    _HAS_OPENAI = False
+
 
 class KnowledgeBaseRetriever:
     """
@@ -55,6 +67,12 @@ class KnowledgeBaseRetriever:
             raise ValueError("VOYAGE_API_KEY 未設定")
 
         self.voyage_client = voyageai.Client(api_key=settings.VOYAGE_API_KEY)
+
+        # OpenAI client（用於 HyDE 查詢擴展）
+        self._openai = None
+        openai_key = getattr(settings, "OPENAI_API_KEY", "")
+        if _HAS_OPENAI and openai_key:
+            self._openai = openai_lib.OpenAI(api_key=openai_key)
 
         # Redis 快取
         self._redis = None
@@ -109,16 +127,27 @@ class KnowledgeBaseRetriever:
             if cached is not None:
                 return cached
 
-        # 2. 執行檢索
+        # 1.5 Query Expansion（HyDE 假設文件生成）
+        expanded_query = None
+        if mode in {"semantic", "hybrid"}:
+            expanded_query = self._expand_query(query)
+
+        # 2. 執行檢索（語意使用擴展查詢，BM25 保持原始 query）
         if mode == "keyword":
             results = self._keyword_search(tenant_id, query, top_k=top_k * 2)
         elif mode == "hybrid":
+            semantic_query = expanded_query or query
             results = self._hybrid_search(
-                tenant_id, query, top_k=top_k * 2, filter_dict=filter_dict,
+                tenant_id,
+                semantic_query=semantic_query,
+                keyword_query=query,
+                top_k=top_k * 2,
+                filter_dict=filter_dict,
             )
         else:  # semantic
+            search_query = expanded_query or query
             results = self._semantic_search(
-                tenant_id, query, top_k=top_k * 2, filter_dict=filter_dict,
+                tenant_id, search_query, top_k=top_k * 2, filter_dict=filter_dict,
             )
 
         # 3. 閾值過濾
@@ -207,6 +236,26 @@ class KnowledgeBaseRetriever:
                     DocumentChunk.tenant_id == tenant_id,
                     DocumentChunk.embedding.isnot(None),
                 )
+            )
+
+            # ── filter_dict：metadata 過濾 ──
+            if filter_dict:
+                for key, value in filter_dict.items():
+                    if isinstance(value, list):
+                        # IN 條件：metadata_json->>'key' IN (...)
+                        query_obj = query_obj.filter(
+                            DocumentChunk.metadata_json[key].astext.in_(
+                                [str(v) for v in value]
+                            )
+                        )
+                    else:
+                        # 精確比對：metadata_json->>'key' = value
+                        query_obj = query_obj.filter(
+                            DocumentChunk.metadata_json[key].astext == str(value)
+                        )
+
+            query_obj = (
+                query_obj
                 .order_by(DocumentChunk.embedding.cosine_distance(query_embedding))
                 .limit(top_k)
             )
@@ -307,13 +356,18 @@ class KnowledgeBaseRetriever:
 
     @staticmethod
     def _tokenize(text: str) -> List[str]:
-        """中英文混合分詞"""
-        # 中文逐字 + 英文按詞（空格分隔）
+        """中英文混合分詞（jieba 詞級分詞 + 英文空格分詞）"""
+        if _HAS_JIEBA:
+            # jieba 精確模式：「勞動基準法」→「勞動」「基準」「法」
+            # 比逐字分詞精確度高很多
+            tokens = list(jieba.cut(text, cut_all=False))
+            return [t.strip().lower() for t in tokens if t.strip() and len(t.strip()) > 0]
+
+        # Fallback：逐字 + 英文按詞
         tokens: List[str] = []
         current_word = ""
         for char in text:
             if "\u4e00" <= char <= "\u9fff":
-                # 中文字元：先結束當前英文詞
                 if current_word:
                     tokens.append(current_word.lower())
                     current_word = ""
@@ -321,7 +375,6 @@ class KnowledgeBaseRetriever:
             elif char.isalnum():
                 current_word += char
             else:
-                # 空格或標點：結束當前英文詞
                 if current_word:
                     tokens.append(current_word.lower())
                     current_word = ""
@@ -336,7 +389,8 @@ class KnowledgeBaseRetriever:
     def _hybrid_search(
         self,
         tenant_id: UUID,
-        query: str,
+        semantic_query: str,
+        keyword_query: str,
         top_k: int = 10,
         filter_dict: Optional[Dict] = None,
         rrf_k: int = 60,
@@ -346,8 +400,10 @@ class KnowledgeBaseRetriever:
 
         RRF 公式: score = Σ 1 / (k + rank)
         """
-        semantic_results = self._semantic_search(tenant_id, query, top_k=top_k, filter_dict=filter_dict)
-        keyword_results = self._keyword_search(tenant_id, query, top_k=top_k)
+        semantic_results = self._semantic_search(
+            tenant_id, semantic_query, top_k=top_k, filter_dict=filter_dict
+        )
+        keyword_results = self._keyword_search(tenant_id, keyword_query, top_k=top_k)
 
         # 如果只有一種來源有結果，直接返回
         if not keyword_results:
@@ -482,3 +538,55 @@ class KnowledgeBaseRetriever:
                     break
         except Exception:
             pass
+
+    # ─────────────────────────────────────────────
+    # HyDE 查詢擴展（Hypothetical Document Embeddings）
+    # ─────────────────────────────────────────────
+
+    def _expand_query(self, query: str) -> Optional[str]:
+        """
+        使用 LLM 生成假設文件來擴展查詢。
+
+        HyDE 原理：讓 LLM 先「想像」一份可能回答問題的文件片段，
+        再用這個假設文件做語意搜尋，比直接用問題搜尋更精確。
+
+        例如：
+          問題: 「特休怎麼算？」
+          假設文件: 「特別休假天數依勞工在同一雇主或事業單位繼續工作滿
+                     一定期間者：六個月以上一年未滿者，三日；一年以上
+                     二年未滿者，七日... 公司年假制度規定...」
+
+        這樣即使文件中寫的是「年假」而非「特休」，也能搜尋到。
+
+        Returns:
+            擴展後的查詢文本，或 None（若 LLM 不可用）。
+        """
+        if not self._openai:
+            return None
+
+        try:
+            response = self._openai.chat.completions.create(
+                model=getattr(settings, "OPENAI_MODEL", "gpt-4o-mini"),
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "你是台灣人資專家。根據使用者的問題，"
+                            "寫一段 50-100 字的假設文件片段，模擬公司人事規章或"
+                            "勞動法規中可能出現的相關段落。"
+                            "只輸出文件片段，不要解釋。"
+                        ),
+                    },
+                    {"role": "user", "content": query},
+                ],
+                temperature=0.5,
+                max_tokens=200,
+            )
+            hypothetical_doc = response.choices[0].message.content.strip()
+            # 將原始查詢與假設文件合併（原始查詢保留語意意圖）
+            expanded = f"{query}\n\n{hypothetical_doc}"
+            logger.debug(f"HyDE 查詢擴展: {query} → +{len(hypothetical_doc)} chars")
+            return expanded
+        except Exception as e:
+            logger.warning(f"HyDE 查詢擴展失敗: {e}")
+            return None

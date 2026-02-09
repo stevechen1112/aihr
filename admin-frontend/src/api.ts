@@ -11,10 +11,11 @@ api.interceptors.request.use((config) => {
 })
 
 // ─── Response interceptor: auto-logout on 401 ───
+// Don't redirect if already on login page (prevents interference with login flow)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 && window.location.pathname !== '/login') {
       localStorage.removeItem('admin_token')
       window.location.href = '/login'
     }

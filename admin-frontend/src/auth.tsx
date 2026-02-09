@@ -44,11 +44,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const { access_token } = await authApi.login(email, password)
-    // Verify superuser before storing token
-    const tempApi = await authApi.me()
-    void tempApi // trigger the call
+    // Store token first so interceptor can attach it
     localStorage.setItem('admin_token', access_token)
-    setToken(access_token)
+    try {
+      // Verify superuser status
+      const u = await authApi.me()
+      if (!u.is_superuser) {
+        localStorage.removeItem('admin_token')
+        throw new Error('此帳號不具備系統管理員權限')
+      }
+      setToken(access_token)
+    } catch (err) {
+      localStorage.removeItem('admin_token')
+      throw err
+    }
   }
 
   const logout = () => {
