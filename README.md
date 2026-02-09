@@ -61,6 +61,12 @@ UniHR 採用**雙層架構**：
 - 同時查詢公司知識庫與 Core 勞動法，合併回答並標註來源
 - Chunk 去重：per-document SHA256 雜湊，避免重複向量化
 - 對話歷史保存，支援多輪追問
+- **SSE 串流回應**：Server-Sent Events 實時串流，打字機效果即時顯示
+- **Markdown 渲染**：支援 GFM 表格、程式碼高亮（rehype-highlight）、清單、標題等格式
+- **來源引用面板**：可展開的參考來源顯示，區分公司政策與勞動法規，含相似度評分
+- **使用者回饋系統**：👍👎 評分機制，含回饋分類與意見欄位，用於持續優化
+- **後續建議**：AI 自動生成相關追問建議，引導使用者深入探索
+- **對話管理**：搜尋歷史對話、匯出為 Markdown、多輪上下文理解
 
 ### 稽核與合規
 - 完整操作日誌：誰問了什麼、檢索了哪些來源、回答了什麼
@@ -144,6 +150,7 @@ UniHR 採用**雙層架構**：
 | 圖表 | Recharts | 3.7 |
 | HTTP | Axios | 1.13 |
 | 圖示 | Lucide React | 0.563 |
+| Markdown 渲染 | react-markdown + remark-gfm + rehype-highlight | 9.x |
 
 ### 基礎設施
 
@@ -286,7 +293,8 @@ G. 企業覆蓋率    ███████████████████�
 |------|------|------|
 | 登入 | `/login` | JWT 登入 + SSO（Email 自動識別組織） |
 | SSO 回調 | `/login/callback` | OAuth 2.0 回調處理 |
-| AI 問答 | `/` | 對話式介面，即時串流回答 |
+| AI 問答 | `/` | SSE 串流對話、Markdown 渲染、來源面板、回饋按鈕、後續建議、對話搜尋、匯出 Markdown |
+| RAG 儀表板 | `/rag-dashboard` | 對話量統計、延遲 P50/P95、回饋分布、每日趨勢圖表（管理員） |
 | 知識庫管理 | `/documents` | 拖放上傳、狀態追蹤、部門篩選 |
 | 我的用量 | `/my-usage` | 個人使用統計（所有角色） |
 | 公司設定 | `/company` | 租戶基本資訊、SSO 設定 |
@@ -312,7 +320,9 @@ G. 企業覆蓋率    ███████████████████�
 |------|------|------|
 | Auth | `/auth/login`, `/auth/register` | JWT 登入 / 註冊 |
 | SSO | `/sso/google`, `/sso/microsoft` | OAuth 2.0 SSO |
-| Chat | `/chat/send`, `/chat/history` | AI 問答與歷史 |
+| Chat | `/chat/send`, `/chat/stream`, `/chat/history`, `/chat/search` | AI 問答（SSE 串流）、歷史、搜尋 |
+| Feedback | `/chat/feedback` | 使用者回饋提交（評分 + 分類 + 意見） |
+| RAG Dashboard | `/chat/rag-dashboard` | RAG 質量儀表板（對話量、延遲、回饋統計） |
 | Documents | `/documents/upload`, `/documents/{id}` | 文件上傳 / CRUD |
 | KB | `/kb/search`, `/kb/stats` | 知識庫檢索 / 統計 |
 | Users | `/users/`, `/users/{id}` | 使用者管理 |
@@ -637,6 +647,7 @@ unihr-saas/
 │   │   ├── user.py                #   使用者
 │   │   ├── document.py            #   文件 + 切片
 │   │   ├── chat.py                #   對話 + 訊息
+│   │   ├── feedback.py            # ★ 使用者回饋（rating 1=👎, 2=👍）
 │   │   ├── audit.py               #   稽核記錄
 │   │   ├── permission.py          #   權限
 │   │   ├── sso_config.py          #   SSO 設定
@@ -672,10 +683,17 @@ unihr-saas/
 │       ├── auth.tsx               # 認證 Context
 │       ├── types.ts               # TypeScript 型別
 │       ├── components/
-│       │   └── Layout.tsx         # 側邊欄導覽 Layout
-│       └── pages/                 # 頁面元件（17 頁）
+│       │   ├── Layout.tsx         # 側邊欄導覽 Layout
+│       │   └── chat/              # ★ Phase 7 對話組件
+│       │       ├── MarkdownRenderer.tsx   # Markdown 渲染（GFM + 程式碼高亮）
+│       │       ├── SourcePanel.tsx        # 來源引用面板（可展開）
+│       │       ├── FeedbackButtons.tsx    # 回饋按鈕（👍👎）
+│       │       ├── FollowUpSuggestions.tsx # 後續建議顯示
+│       │       └── TypingIndicator.tsx    # 打字指示器
+│       └── pages/                 # 頁面元件（18 頁）
 │           ├── LoginPage.tsx       #   登入 + SSO Email 自動識別
-│           ├── ChatPage.tsx
+│           ├── ChatPage.tsx        # ★ SSE 串流對話 + Markdown + 來源 + 回饋 + 搜尋 + 匯出
+│           ├── RAGDashboardPage.tsx # ★ RAG 質量儀表板（P50/P95 延遲、回饋統計）
 │           ├── DocumentsPage.tsx    #   文件管理 + 部門篩選
 │           ├── MyUsagePage.tsx      # ★ 個人用量統計
 │           ├── CompanyPage.tsx
@@ -725,6 +743,7 @@ unihr-saas/
 │       └── results/               #   測試結果
 ├── alembic/                       # 資料庫遷移
 │   └── versions/                  #   遷移版本鏈
+│       └── t7_5_feedback.py       # ★ Phase 7: chat_feedbacks 表（評分+分類+意見）
 ├── scripts/                       # 工具腳本
 │   ├── create_tables.py           #   資料表建立
 │   ├── create_test_users.py       #   測試帳號建立
@@ -738,7 +757,8 @@ unihr-saas/
 │   ├── MULTI_REGION.md            # ★ 多區域部署指南
 │   ├── UX_FLOW_REVIEW.md          # ★ UX 流程全角色檢視報告
 │   ├── PHASE2_TEST_REPORT.md      #   Phase 2 測試報告
-│   └── PHASE3_TEST_REPORT.md      #   Phase 3 測試報告
+│   ├── PHASE3_TEST_REPORT.md      #   Phase 3 測試報告
+│   └── PHASE7_UPGRADE_PROPOSAL.md # ★ Phase 7 升級提案（對話體驗升級）
 ├── docker-compose.yml             # 開發環境
 ├── docker-compose.staging.yml     # Staging 覆蓋
 ├── docker-compose.prod.yml        # ★ 生產環境（12 容器）
@@ -769,6 +789,27 @@ unihr-saas/
 | Phase 4 | 生產化：前後台分離 + CI/CD + 白標 + 監控 + 安全稽核 + 微服務化 + 多區域（22 任務） | ✅ 完成 |
 | Phase 5 | UX 流程審查：全角色 UX 檢視 + 11 項修復（路由守衛 + SSO 自動識別 + 權限 DI 統一 + UI 增強） | ✅ 完成 |
 | Phase 6 | AI 引擎升級：LlamaParse 智慧解析 + jieba 分詞 + HyDE 查詢擴展 + LLM 答案生成 + Chunk 去重 | ✅ 完成 |
+| Phase 7 | 對話體驗升級：SSE 串流 + Markdown 渲染 + 來源面板 + 回饋系統 + RAG 儀表板 + 行動版響應式（15 任務） | ✅ 完成 |
+
+### Phase 7 任務清單（對話體驗升級 — 15/15 完成）
+
+| 項目 | 說明 | 優先級 | 狀態 |
+|------|------|--------|------|
+| T7-0 | Orchestrator 重構：retrieve_context、stream_answer、contextualize_query 三階段分離 | P0 | ✅ |
+| T7-1 | SSE 串流後端 + 前端 ReadableStream 解析器（status/sources/token/suggestions/done/error 事件） | P0 | ✅ |
+| T7-2 | 多輪對話上下文：歷史訊息注入 + query contextualization（改寫查詢） | P0 | ✅ |
+| T7-3 | Markdown 渲染器：react-markdown + remark-gfm（表格）+ rehype-highlight（程式碼高亮） | P1 | ✅ |
+| T7-4 | 來源面板：可展開的參考來源顯示，區分 policy/law，含相似度評分與摘要 | P1 | ✅ |
+| T7-5 | 使用者回饋系統：資料模型 + API 端點 + 前端 FeedbackButtons（👍👎） | P1 | ✅ |
+| T7-6 | 後續建議：LLM 解析生成 3 個追問建議 + 前端點擊自動填入 | P2 | ✅ |
+| T7-9 | 行動版響應式：漢堡選單 + 側邊欄覆蓋層 + 觸控友善 UI | P2 | ✅ |
+| T7-11 | 對話匯出：Markdown 格式匯出，含時間戳、來源、評分 | P2 | ✅ |
+| T7-12 | RAG 儀表板：對話量、延遲 P50/P95、回饋統計、每日趨勢圖表（Recharts） | P1 | ✅ |
+| T7-13 | 對話搜尋：關鍵字檢索歷史對話，顯示摘要與時間 | P2 | ✅ |
+| T7-14 | 打字指示器：AI 思考中的動畫效果 | P3 | ✅ |
+| T7-X | 來源資料結構修復：backend 與 frontend ChatSource 型別對齊（policy/law + title/snippet） | P0 | ✅ |
+| T7-Y | 搜尋欄位修復：search API 返回 snippet 欄位而非 content | P0 | ✅ |
+| T7-Z | SSE 錯誤處理修復：錯誤事件觸發時中止訊息提交，避免空白對話 | P0 | ✅ |
 
 ### Phase 6 任務清單（AI 引擎升級 — 7/7 完成）
 
@@ -840,6 +881,7 @@ unihr-saas/
 | [docs/OPS_SOP.md](docs/OPS_SOP.md) | 維運標準作業程序（SOP） |
 | [docs/MULTI_REGION.md](docs/MULTI_REGION.md) | 多區域部署指南 |
 | [docs/UX_FLOW_REVIEW.md](docs/UX_FLOW_REVIEW.md) | UX 流程全角色檢視報告（含 Mermaid 圖表） |
+| [docs/PHASE7_UPGRADE_PROPOSAL.md](docs/PHASE7_UPGRADE_PROPOSAL.md) | Phase 7 升級提案（對話體驗升級） |
 | [tests/load/README.md](tests/load/README.md) | 負載測試說明 |
 
 ---

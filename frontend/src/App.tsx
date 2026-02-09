@@ -16,6 +16,7 @@ import SubscriptionPage from './pages/SubscriptionPage'
 import CustomDomainsPage from './pages/CustomDomainsPage'
 import RegionsPage from './pages/RegionsPage'
 import MyUsagePage from './pages/MyUsagePage'
+import RAGDashboardPage from './pages/RAGDashboardPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, loading } = useAuth()
@@ -48,6 +49,7 @@ function AppRoutes() {
         <Route path="branding" element={<RoleGuard roles={['owner', 'admin']}><BrandingPage /></RoleGuard>} />
         <Route path="subscription" element={<RoleGuard roles={['owner', 'admin']}><SubscriptionPage /></RoleGuard>} />
         <Route path="custom-domains" element={<RoleGuard roles={['owner', 'admin']}><CustomDomainsPage /></RoleGuard>} />
+        <Route path="rag-dashboard" element={<RoleGuard roles={['owner', 'admin']}><RAGDashboardPage /></RoleGuard>} />
         <Route path="regions" element={<RegionsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

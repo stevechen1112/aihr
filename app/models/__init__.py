@@ -3,6 +3,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.document import Document, DocumentChunk
 from app.models.chat import Conversation, Message, RetrievalTrace
+from app.models.feedback import ChatFeedback
 from app.models.audit import AuditLog, UsageRecord
 from app.models.permission import Department, FeaturePermission
 from app.models.sso_config import TenantSSOConfig

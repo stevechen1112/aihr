@@ -3,6 +3,7 @@ import type {
   User, Document, ChatRequest, ChatResponse,
   Conversation, Message, UsageSummary, UsageByAction,
   UsageRecord, AuditLog,
+  SSEEvent, FeedbackCreate, FeedbackResponse, SearchResult,
 } from './types'
 
 const api = axios.create({ baseURL: '/api/v1' })
@@ -63,6 +64,67 @@ export const chatApi = {
   conversations: () => api.get<Conversation[]>('/chat/conversations').then(r => r.data),
   messages: (convId: string) => api.get<Message[]>(`/chat/conversations/${convId}/messages`).then(r => r.data),
   deleteConversation: (convId: string) => api.delete(`/chat/conversations/${convId}`).then(r => r.data),
+
+  /** T7-1: SSE streaming chat */
+  stream: (req: ChatRequest, onEvent: (event: SSEEvent) => void, signal?: AbortSignal): Promise<void> => {
+    const token = localStorage.getItem('token')
+    return fetch('/api/v1/chat/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(req),
+      signal,
+    }).then(async (response) => {
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        throw new Error(body.detail || `HTTP ${response.status}`)
+      }
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('ReadableStream not supported')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        // 解析 SSE data: lines
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data: ')) continue
+          try {
+            const event: SSEEvent = JSON.parse(trimmed.slice(6))
+            onEvent(event)
+          } catch {
+            // skip malformed
+          }
+        }
+      }
+    })
+  },
+
+  /** T7-5: Feedback */
+  submitFeedback: (data: FeedbackCreate) =>
+    api.post<FeedbackResponse>('/chat/feedback', data).then(r => r.data),
+
+  /** T7-11: Export conversation */
+  exportConversation: (convId: string) =>
+    api.get(`/chat/conversations/${convId}/export`, { responseType: 'blob' }).then(r => r.data),
+
+  /** T7-13: Search conversations */
+  searchConversations: (q: string) =>
+    api.get<SearchResult[]>('/chat/conversations/search', { params: { q } }).then(r => r.data),
+
+  /** T7-12: RAG quality dashboard */
+  ragDashboard: (days = 30) =>
+    api.get('/chat/dashboard/rag', { params: { days } }).then(r => r.data),
 }
 
 // ─── Audit ───

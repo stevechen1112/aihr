@@ -66,6 +66,56 @@ export interface Message {
   role: 'user' | 'assistant'
   content: string
   created_at: string
+  /** T7-5: 當前用戶對此訊息的回饋 */
+  feedback?: 'up' | 'down' | null
+  /** T7-4: 來源引用 */
+  sources?: ChatSource[]
+}
+
+// ─── T7-1 SSE Streaming ───
+export type SSEEventType = 'status' | 'sources' | 'token' | 'suggestions' | 'done' | 'error'
+
+export interface SSEEvent {
+  type: SSEEventType
+  content?: string
+  sources?: ChatSource[]
+  items?: string[]
+  message_id?: string
+  conversation_id?: string
+}
+
+// ─── T7-4 Source reference ───
+export interface ChatSource {
+  type: 'policy' | 'law'
+  title: string
+  snippet: string
+  document_id?: string
+  score?: number
+}
+
+// ─── T7-5 Feedback ───
+export interface FeedbackCreate {
+  message_id: string
+  rating: 1 | 2            // 1=👎  2=👍
+  category?: string | null
+  comment?: string | null
+}
+
+export interface FeedbackResponse {
+  id: string
+  message_id: string
+  rating: number
+  created_at: string
+}
+
+// ─── T7-13 Search ───
+export interface SearchResult {
+  conversation_id: string
+  conversation_title: string | null
+  message_id: string
+  role: string
+  snippet: string
+  created_at: string
 }
 
 // ─── Audit ───
