@@ -260,7 +260,7 @@ export default function ChatPage() {
           <h2 className="text-sm font-semibold text-gray-700">對話記錄</h2>
           <button
             onClick={handleNewChat}
-            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-[#d15454] transition-colors"
             title="新對話"
           >
             <Plus className="h-4 w-4" />
@@ -275,7 +275,7 @@ export default function ChatPage() {
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
               placeholder="搜尋對話..."
-              className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:border-blue-400 focus:outline-none"
+              className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:border-[#d15454] focus:outline-none"
             />
             {searchQuery ? (
               <button
@@ -326,7 +326,7 @@ export default function ChatPage() {
                 onClick={() => setActiveConvId(conv.id)}
                 className={clsx(
                   'group flex items-center justify-between rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors',
-                  activeConvId === conv.id ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50',
+                  activeConvId === conv.id ? 'bg-[#d15454]/10 text-[#d15454]' : 'text-gray-600 hover:bg-gray-50',
                 )}
               >
                 <div className="flex-1 truncate">
@@ -336,7 +336,7 @@ export default function ChatPage() {
                 <div className="ml-2 hidden gap-0.5 group-hover:flex">
                   <button
                     onClick={e => handleExport(conv.id, e)}
-                    className="rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors"
+                    className="rounded p-1 text-gray-400 hover:bg-[#d15454]/10 hover:text-[#d15454] transition-colors"
                     title="匯出"
                   >
                     <Download className="h-3.5 w-3.5" />
@@ -362,7 +362,7 @@ export default function ChatPage() {
           <h2 className="text-sm font-semibold text-gray-700">AI 問答</h2>
           <button
             onClick={handleNewChat}
-            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-blue-600"
+            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-[#d15454]"
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -380,7 +380,7 @@ export default function ChatPage() {
                   <button
                     key={q}
                     onClick={() => setInput(q)}
-                    className="rounded-xl border border-gray-200 px-4 py-3 text-left text-sm text-gray-600 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                    className="rounded-xl border border-gray-200 px-4 py-3 text-left text-sm text-gray-600 hover:border-[#d15454]/30 hover:bg-[#d15454]/5 transition-colors"
                   >
                     {q}
                   </button>
@@ -395,7 +395,7 @@ export default function ChatPage() {
                     className={clsx(
                       'max-w-[85%] md:max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
                       msg.role === 'user'
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-[#d15454] text-white'
                         : 'bg-white text-gray-800 border border-gray-200 shadow-sm',
                     )}
                   >
@@ -449,7 +449,7 @@ export default function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder="輸入你的問題..."
               rows={1}
-              className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-shadow"
+              className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#d15454] focus:ring-2 focus:ring-[#d15454]/20 focus:outline-none transition-shadow"
               style={{ maxHeight: '120px' }}
               onInput={e => {
                 const target = e.target as HTMLTextAreaElement
@@ -460,7 +460,7 @@ export default function ChatPage() {
             <button
               onClick={handleSend}
               disabled={!input.trim() || sending}
-              className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 transition-colors shrink-0"
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#d15454] text-white hover:bg-[#c04444] disabled:opacity-40 transition-colors shrink-0"
             >
               <Send className="h-4 w-4" />
             </button>

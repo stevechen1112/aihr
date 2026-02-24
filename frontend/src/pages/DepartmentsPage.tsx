@@ -76,7 +76,7 @@ function DeptRow({ dept, collapsed, onToggle, onDelete }: {
           ) : (
             <span className="mr-1.5 w-5" />
           )}
-          <Building2 className={`h-4 w-4 mr-2 shrink-0 ${dept.depth === 0 ? 'text-blue-500' : dept.depth === 1 ? 'text-indigo-400' : 'text-gray-400'}`} />
+          <Building2 className={`h-4 w-4 mr-2 shrink-0 ${dept.depth === 0 ? 'text-[#d15454]' : dept.depth === 1 ? 'text-[#d15454]/60' : 'text-gray-400'}`} />
           <span className="text-sm font-medium text-gray-900">{dept.name}</span>
           {hasChildren && (
             <span className="ml-2 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
@@ -177,7 +177,7 @@ export default function DepartmentsPage() {
       {/* Header */}
       <div className="border-b border-gray-200 bg-white px-6 py-4">
         <div className="flex items-center gap-2">
-          <FolderTree className="h-5 w-5 text-blue-600" />
+          <FolderTree className="h-5 w-5 text-[#d15454]" />
           <h1 className="text-lg font-semibold text-gray-900">部門管理</h1>
         </div>
         <p className="text-sm text-gray-500">管理組織架構與部門層級</p>
@@ -195,7 +195,7 @@ export default function DepartmentsPage() {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="例：人力資源部"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#d15454] focus:outline-none focus:ring-1 focus:ring-[#d15454]/20"
                 required
               />
             </div>
@@ -204,7 +204,7 @@ export default function DepartmentsPage() {
               <select
                 value={parentId}
                 onChange={e => setParentId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#d15454] focus:outline-none focus:ring-1 focus:ring-[#d15454]/20"
               >
                 <option value="">（頂層部門）</option>
                 {departments.map(d => (
@@ -219,13 +219,13 @@ export default function DepartmentsPage() {
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 placeholder="選填"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#d15454] focus:outline-none focus:ring-1 focus:ring-[#d15454]/20"
               />
             </div>
             <button
               type="submit"
               disabled={creating || !name.trim()}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#d15454] px-4 py-2 text-sm font-medium text-white hover:bg-[#c04444] disabled:opacity-50 transition-colors"
             >
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               新增
