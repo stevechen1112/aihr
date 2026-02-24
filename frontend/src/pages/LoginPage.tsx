@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../auth'
 import { ssoApi } from '../api'
-import { Shield, Loader2, Mail, Building2, ArrowLeft } from 'lucide-react'
+import { Loader2, Mail, Building2, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 // ─── SSO helpers ───
@@ -143,15 +143,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-50 via-red-50 to-orange-50 p-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 shadow-lg">
-            <Shield className="h-8 w-8 text-white" />
+          <div className="mx-auto mb-5 flex items-center justify-center">
+            <img
+              src="/Upower-LOGO.jpg"
+              alt="Upower 優利資源整合"
+              className="h-20 w-auto object-contain drop-shadow-md"
+            />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">UniHR</h1>
-          <p className="mt-1 text-sm text-gray-500">企業人資 AI 助理平台</p>
+          <p className="mt-1 text-sm" style={{ color: '#d15454' }}>企業人資 AI 助理平台</p>
         </div>
 
         {/* Form */}
@@ -167,7 +171,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.com"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-shadow"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-[#d15454] focus:ring-2 focus:ring-[#d15454]/20 focus:outline-none transition-shadow"
               />
             </div>
 
@@ -179,7 +183,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-shadow"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-[#d15454] focus:ring-2 focus:ring-[#d15454]/20 focus:outline-none transition-shadow"
               />
             </div>
           </div>
@@ -187,7 +191,10 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 transition-colors"
+            style={{ backgroundColor: '#d15454' }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#c04444')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#d15454')}
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {loading ? '登入中...' : '登入'}
@@ -207,7 +214,7 @@ export default function LoginPage() {
           {showSSO && !ssoDiscovered && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Mail className="h-4 w-4 text-blue-500" />
+                <Mail className="h-4 w-4" style={{ color: '#d15454' }} />
                 <span>輸入工作信箱，系統自動識別您的組織</span>
               </div>
               <form onSubmit={handleSSODiscover} className="flex gap-2">
@@ -216,13 +223,16 @@ export default function LoginPage() {
                   value={ssoEmail}
                   onChange={(e) => setSsoEmail(e.target.value)}
                   placeholder="name@yourcompany.com"
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#d15454] focus:ring-2 focus:ring-[#d15454]/20 focus:outline-none"
                   required
                 />
                 <button
                   type="submit"
                   disabled={ssoDiscovering}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 transition-colors whitespace-nowrap"
+                  style={{ backgroundColor: '#d15454' }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#c04444')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#d15454')}
                 >
                   {ssoDiscovering ? <Loader2 className="h-4 w-4 animate-spin" /> : '查詢'}
                 </button>
@@ -271,7 +281,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-4 text-center text-xs text-gray-400">
-          © 2026 UniHR. All rights reserved.
+          © 2026 Upower UniHR. All rights reserved.
         </p>
       </div>
     </div>

@@ -45,9 +45,16 @@ export default function Layout() {
         {branding.brand_logo_url ? (
           <img src={branding.brand_logo_url} alt={displayName} className="h-6 w-6 object-contain" />
         ) : (
-          <Shield className="h-6 w-6" style={{ color: branding.brand_primary_color || '#2563eb' }} />
+          <Shield className="h-6 w-6" style={{ color: branding.brand_primary_color || '#d15454' }} />
         )}
         <span className="text-lg font-bold text-gray-900">{displayName}</span>
+        {!branding.brand_logo_url && (
+          <img
+            src="/Upower-LOGO.jpg"
+            alt="Upower"
+            className="ml-1 h-6 w-auto max-w-[88px] object-contain opacity-90"
+          />
+        )}
         {/* Mobile close button */}
         <button
           onClick={() => setSidebarOpen(false)}
@@ -69,7 +76,7 @@ export default function Layout() {
               clsx(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-blue-50 text-blue-700'
+                  ? 'bg-[#d15454]/10 text-[#d15454]'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               )
             }
