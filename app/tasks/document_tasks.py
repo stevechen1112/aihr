@@ -1,9 +1,13 @@
 import os
+import io
+import tempfile
 import hashlib
 import time
 import logging
 from typing import List
 from uuid import UUID
+import boto3
+from pinecone import Pinecone
 import voyageai
 from celery.exceptions import SoftTimeLimitExceeded
 from app.celery_app import celery_app
@@ -15,6 +19,21 @@ from app.schemas.document import DocumentUpdate
 from app.models.document import DocumentChunk
 
 logger = logging.getLogger(__name__)
+
+
+def _r2_client():
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.R2_ENDPOINT,
+        aws_access_key_id=settings.R2_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+        region_name="auto",
+    )
+
+
+def _pinecone_index():
+    pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+    return pc.Index(settings.PINECONE_INDEX_NAME)
 
 
 @celery_app.task(
@@ -49,9 +68,13 @@ def process_document_task(self, document_id: str, file_path: str, tenant_id: str
             obj_in=DocumentUpdate(status="parsing")
         )
         
-        # 3. 解析文件（自動選擇 LlamaParse 或內建解析器）
+        # 3. 從 R2 下載文件到暫存檔並解析
+        file_ext = os.path.splitext(doc.filename)[1].lower() or ".bin"
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=file_ext)
+        os.close(tmp_fd)
         try:
-            text_content, metadata = DocumentParser.parse(file_path, doc.file_type)
+            _r2_client().download_file(settings.R2_BUCKET, file_path, tmp_path)
+            text_content, metadata = DocumentParser.parse(tmp_path, doc.file_type)
         except Exception as e:
             crud_document.update(
                 db,
@@ -62,6 +85,9 @@ def process_document_task(self, document_id: str, file_path: str, tenant_id: str
                 )
             )
             return {"status": "failed", "error": str(e)}
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
         
         # 3.5 儲存品質報告
         crud_document.update(
@@ -126,36 +152,56 @@ def process_document_task(self, document_id: str, file_path: str, tenant_id: str
             all_embeddings.extend(result.embeddings)
             time.sleep(0.5)  # Rate limiting
         
-        # 7. 寫入 pgvector（直接儲存到 PostgreSQL）—— 含去重
+        # 7. 寫入 Pinecone（向量）+ PostgreSQL（文字 for BM25）
+        pinecone_index = _pinecone_index()
+        namespace = tenant_id  # tenant namespace 提供多租戶雔離
+
+        vectors_to_upsert = []
+        chunk_rows = []
+
+        # 取得已存在的 chunk hashes（去重用）
         from app.models.document import DocumentChunk as DChunk
+        existing_hashes = {
+            row[0]
+            for row in db.query(DChunk.chunk_hash)
+            .filter(DChunk.document_id == UUID(document_id))
+            .all()
+        }
 
         inserted = 0
         skipped = 0
         for idx, (chunk, embedding) in enumerate(zip(chunks, all_embeddings)):
             chunk_hash = hashlib.sha256(chunk.encode()).hexdigest()[:16]
-            vector_id = f"{document_id}-chunk-{idx}"
 
-            # 去重：同一文件內相同內容的 chunk 不重複寫入
-            existing = (
-                db.query(DChunk)
-                .filter(
-                    DChunk.document_id == UUID(document_id),
-                    DChunk.chunk_hash == chunk_hash,
-                )
-                .first()
-            )
-            if existing:
+            if chunk_hash in existing_hashes:
                 skipped += 1
                 continue
-            
-            db_chunk = DChunk(
+
+            vector_id = f"{document_id}-chunk-{idx}"
+
+            # Pinecone vector
+            vectors_to_upsert.append({
+                "id": vector_id,
+                "values": embedding,
+                "metadata": {
+                    "tenant_id": tenant_id,
+                    "document_id": document_id,
+                    "filename": doc.filename,
+                    "chunk_index": idx,
+                    "text": chunk,
+                    "parse_engine": metadata.get("parse_engine", "native"),
+                },
+            })
+
+            # PostgreSQL chunk（保留文字供 BM25用）
+            chunk_rows.append(DChunk(
                 document_id=UUID(document_id),
                 tenant_id=UUID(tenant_id),
                 chunk_index=idx,
                 text=chunk,
                 chunk_hash=chunk_hash,
                 vector_id=vector_id,
-                embedding=embedding,
+                # embedding=None — 向量儲存於 Pinecone
                 metadata_json={
                     "filename": doc.filename,
                     "chunk_index": idx,
@@ -163,13 +209,23 @@ def process_document_task(self, document_id: str, file_path: str, tenant_id: str
                     "quality_score": metadata.get("quality_score", 0),
                     "tables_detected": metadata.get("tables_detected", 0),
                     "ocr_used": metadata.get("ocr_used", False),
-                }
-            )
-            db.add(db_chunk)
+                },
+            ))
             inserted += 1
-        
+
+        # Pinecone upsert（批次 100 vectors）
+        upsert_batch = 100
+        for i in range(0, len(vectors_to_upsert), upsert_batch):
+            pinecone_index.upsert(
+                vectors=vectors_to_upsert[i:i + upsert_batch],
+                namespace=namespace,
+            )
+
+        # PostgreSQL commit
+        for row in chunk_rows:
+            db.add(row)
         db.commit()
-        
+
         if skipped:
             logger.info(f"去重: 跳過 {skipped} 個重複 chunk，寫入 {inserted} 個")
         

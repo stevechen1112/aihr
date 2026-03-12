@@ -51,6 +51,12 @@ try:
 except ImportError:
     _HAS_OPENAI = False
 
+try:
+    from pinecone import Pinecone as PineconeClient
+    _HAS_PINECONE = True
+except ImportError:
+    _HAS_PINECONE = False
+
 
 class KnowledgeBaseRetriever:
     """
@@ -68,11 +74,14 @@ class KnowledgeBaseRetriever:
 
         self.voyage_client = voyageai.Client(api_key=settings.VOYAGE_API_KEY)
 
-        # OpenAI client（用於 HyDE 查詢擴展）
+        # Gemini client（用於 HyDE 查詢擴展，透過 OpenAI 相容端點）
         self._openai = None
-        openai_key = getattr(settings, "OPENAI_API_KEY", "")
-        if _HAS_OPENAI and openai_key:
-            self._openai = openai_lib.OpenAI(api_key=openai_key)
+        gemini_key = getattr(settings, "GEMINI_API_KEY", "")
+        if _HAS_OPENAI and gemini_key:
+            self._openai = openai_lib.OpenAI(
+                api_key=gemini_key,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            )
 
         # Redis 快取
         self._redis = None
@@ -89,7 +98,14 @@ class KnowledgeBaseRetriever:
             except Exception:
                 logger.warning("Redis 連線失敗，檢索快取已停用")
                 self._redis = None
-
+        # Pinecone 索引（語意向量檢索）
+        self._pinecone_index = None
+        if _HAS_PINECONE and getattr(settings, "PINECONE_API_KEY", ""):
+            try:
+                pc = PineconeClient(api_key=settings.PINECONE_API_KEY)
+                self._pinecone_index = pc.Index(settings.PINECONE_INDEX_NAME)
+            except Exception as e:
+                logger.warning(f"Pinecone 初始化失敗: {e}")
     # ─────────────────────────────────────────────
     # 公開 API
     # ─────────────────────────────────────────────
@@ -177,17 +193,25 @@ class KnowledgeBaseRetriever:
         return [self.search(tenant_id, q, top_k=top_k, mode=mode) for q in queries]
 
     def get_stats(self, tenant_id: UUID) -> Dict[str, Any]:
-        """獲取租戶知識庫統計資訊（從 PostgreSQL 查詢）"""
+        """獲取租戶知識庫統計資訊（Pinecone namespace stats）"""
+        if self._pinecone_index:
+            try:
+                stats = self._pinecone_index.describe_index_stats()
+                ns_stats = stats.namespaces.get(str(tenant_id), {})
+                vector_count = getattr(ns_stats, "vector_count", 0)
+                return {
+                    "exists": vector_count > 0,
+                    "vector_count": vector_count,
+                    "total_chunks": vector_count,
+                    "dimension": settings.EMBEDDING_DIMENSION,
+                    "backend": "pinecone",
+                }
+            except Exception as e:
+                logger.warning(f"Pinecone stats 查詢失敗: {e}")
+
+        # Fallback: PostgreSQL chunk count
         db = SessionLocal()
         try:
-            vector_count = (
-                db.query(DocumentChunk)
-                .filter(
-                    DocumentChunk.tenant_id == tenant_id,
-                    DocumentChunk.embedding.isnot(None),
-                )
-                .count()
-            )
             total_chunks = (
                 db.query(DocumentChunk)
                 .filter(DocumentChunk.tenant_id == tenant_id)
@@ -195,10 +219,10 @@ class KnowledgeBaseRetriever:
             )
             return {
                 "exists": total_chunks > 0,
-                "vector_count": vector_count,
+                "vector_count": 0,
                 "total_chunks": total_chunks,
                 "dimension": settings.EMBEDDING_DIMENSION,
-                "backend": "pgvector",
+                "backend": "pinecone",
             }
         except Exception as e:
             return {"exists": False, "error": str(e)}
@@ -216,80 +240,48 @@ class KnowledgeBaseRetriever:
         top_k: int = 10,
         filter_dict: Optional[Dict] = None,
     ) -> List[Dict[str, Any]]:
-        """使用 pgvector 的 cosine distance 進行語意檢索"""
-        db = SessionLocal()
+        """使用 Pinecone 進行語意向量檢索"""
+        if not self._pinecone_index:
+            logger.warning("Pinecone 未初始化，語意檢索不可用")
+            return []
         try:
             # 1. 取得查詢向量
             query_embedding = self.voyage_client.embed(
                 [query], model=settings.VOYAGE_MODEL, input_type="query",
             ).embeddings[0]
 
-            # 2. 使用 pgvector cosine distance 搜尋
-            #    cosine_distance = 1 - cosine_similarity
-            #    所以 score = 1 - cosine_distance
-            query_obj = (
-                db.query(
-                    DocumentChunk,
-                    DocumentChunk.embedding.cosine_distance(query_embedding).label("distance"),
-                )
-                .filter(
-                    DocumentChunk.tenant_id == tenant_id,
-                    DocumentChunk.embedding.isnot(None),
-                )
-            )
-
-            # ── filter_dict：metadata 過濾 ──
+            # 2. Pinecone query（以 tenant namespace 隔離）
+            pinecone_filter: Dict = {}
             if filter_dict:
-                for key, value in filter_dict.items():
-                    if isinstance(value, list):
-                        # IN 條件：metadata_json->>'key' IN (...)
-                        query_obj = query_obj.filter(
-                            DocumentChunk.metadata_json[key].astext.in_(
-                                [str(v) for v in value]
-                            )
-                        )
-                    else:
-                        # 精確比對：metadata_json->>'key' = value
-                        query_obj = query_obj.filter(
-                            DocumentChunk.metadata_json[key].astext == str(value)
-                        )
+                for k, v in filter_dict.items():
+                    pinecone_filter[k] = {"$in": [str(i) for i in v]} if isinstance(v, list) else {"$eq": str(v)}
 
-            query_obj = (
-                query_obj
-                .order_by(DocumentChunk.embedding.cosine_distance(query_embedding))
-                .limit(top_k)
+            response = self._pinecone_index.query(
+                vector=query_embedding,
+                top_k=top_k,
+                namespace=str(tenant_id),
+                include_metadata=True,
+                filter=pinecone_filter if pinecone_filter else None,
             )
 
+            # 3. 格式化結果
             results = []
-            # 取得文件名映射
-            doc_map: Dict[UUID, str] = {}
-            for chunk, distance in query_obj.all():
-                # 懶查文件名
-                if chunk.document_id not in doc_map:
-                    doc = db.query(Document).filter(
-                        Document.id == chunk.document_id,
-                        Document.tenant_id == tenant_id,
-                    ).first()
-                    doc_map[chunk.document_id] = doc.filename if doc else ""
-
-                score = round(1.0 - distance, 4)  # cosine similarity
+            for match in response.matches:
+                meta = match.metadata or {}
                 results.append({
-                    "id": str(chunk.id),
-                    "score": score,
-                    "content": chunk.text or "",
-                    "document_id": str(chunk.document_id),
-                    "filename": doc_map.get(chunk.document_id, ""),
-                    "chunk_index": chunk.chunk_index,
-                    "metadata": chunk.metadata_json or {},
+                    "id": match.id,
+                    "score": round(float(match.score), 4),
+                    "content": meta.get("text", ""),
+                    "document_id": meta.get("document_id", ""),
+                    "filename": meta.get("filename", ""),
+                    "chunk_index": int(meta.get("chunk_index", 0)),
+                    "metadata": meta,
                     "source": "semantic",
                 })
-
             return results
         except Exception as e:
-            logger.error(f"語意檢索錯誤: {e}")
+            logger.error(f"Pinecone 語意檢索錯誤: {e}")
             return []
-        finally:
-            db.close()
 
     # ─────────────────────────────────────────────
     # BM25 關鍵字檢索

@@ -66,12 +66,12 @@ class Settings(BaseSettings):
     # 稽核留存
     AUDIT_RETENTION_YEARS: int = 7  # 關鍵事件留存年限（勞基法規建議最小 5 年）
 
-    # OpenAI（用於 Generation 回答生成 + HyDE 查詢擴展）
-    LLM_BACKEND: str = "openai"  # openai / ollama / core
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"  # Generation 使用的模型
-    OPENAI_TEMPERATURE: float = 0.3     # 回答生成溫度（低 = 更精確）
-    OPENAI_MAX_TOKENS: int = 1500       # 回答最大 token 數
+    # Gemini（用於 Generation 回答生成 + HyDE 查詢擴展）
+    LLM_BACKEND: str = "gemini"  # gemini / core
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash-preview-04-17"  # Generation 使用的模型
+    LLM_TEMPERATURE: float = 0.3     # 回答生成溫度（低 = 更精確）
+    LLM_MAX_TOKENS: int = 1500       # 回答最大 token 數
     LLM_MAX_INPUT_TOKENS: int = 6000    # prompts + context 合計上限（預估）
     LLM_CONTEXT_RESERVE_TOKENS: int = 1800  # 預留給模型輸出與安全緩衝
     LLM_GUARDRAIL_ENABLED: bool = True
@@ -102,15 +102,20 @@ class Settings(BaseSettings):
         "system prompt"
     )
 
-    # Ollama（本地模型，使用 OpenAI 相容 API）
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "gemma3:27b"
-    OLLAMA_API_KEY: str = "ollama"
-
     # Voyage AI + pgvector
     VOYAGE_API_KEY: str = ""
     VOYAGE_MODEL: str = "voyage-4-lite"
     EMBEDDING_DIMENSION: int = 1024
+
+    # Cloudflare R2（檔案儲存）
+    R2_ACCESS_KEY_ID: str = ""
+    R2_SECRET_ACCESS_KEY: str = ""
+    R2_ENDPOINT: str = ""
+    R2_BUCKET: str = "aihr-uploads"
+
+    # Pinecone（向量資料庫）
+    PINECONE_API_KEY: str = ""
+    PINECONE_INDEX_NAME: str = "aihr-vectors"
 
     # LlamaParse（高品質文檔解析 — 跨頁表格、手寫 OCR、複雜佈局）
     LLAMAPARSE_API_KEY: str = ""
@@ -178,9 +183,9 @@ class Settings(BaseSettings):
     @field_validator("LLM_BACKEND")
     @classmethod
     def _validate_llm_backend(cls, v: str) -> str:
-        backend = (v or "openai").strip().lower()
-        if backend not in {"openai", "ollama", "core"}:
-            raise ValueError("LLM_BACKEND must be one of: openai, ollama, core")
+        backend = (v or "gemini").strip().lower()
+        if backend not in {"gemini", "core"}:
+            raise ValueError("LLM_BACKEND must be one of: gemini, core")
         return backend
 
     @field_validator("SOURCE_PRIORITY_MODE")

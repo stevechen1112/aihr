@@ -58,43 +58,35 @@ class ChatOrchestrator:
     def __init__(self):
         self.kb_retriever = KnowledgeBaseRetriever()
         self.core_client = CoreAPIClient()
-        self._llm_backend = getattr(settings, "LLM_BACKEND", "openai").strip().lower()
+        self._llm_backend = getattr(settings, "LLM_BACKEND", "gemini").strip().lower()
         self._llm_available = False
         self._source_priority_mode = getattr(settings, "SOURCE_PRIORITY_MODE", "adaptive")
         self._policy_source_weight = float(getattr(settings, "POLICY_SOURCE_WEIGHT", 0.65))
         self._law_source_weight = float(getattr(settings, "LAW_SOURCE_WEIGHT", 0.35))
         self._conflict_resolution_mode = getattr(settings, "CONFLICT_RESOLUTION_MODE", "legal_floor")
 
-        # OpenAI client (sync + async)
+        # Gemini client (via OpenAI-compatible endpoint)
         self._openai = None
         self._openai_async = None
-        if self._llm_backend in ("openai", "ollama"):
+        _GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/"
+        if self._llm_backend == "gemini":
             if _HAS_OPENAI:
-                if self._llm_backend == "ollama":
-                    ollama_base = getattr(settings, "OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-                    ollama_api_key = getattr(settings, "OLLAMA_API_KEY", "ollama") or "ollama"
-                    self._openai = openai_lib.OpenAI(api_key=ollama_api_key, base_url=f"{ollama_base}/v1")
-                    self._openai_async = openai_lib.AsyncOpenAI(api_key=ollama_api_key, base_url=f"{ollama_base}/v1")
+                gemini_key = getattr(settings, "GEMINI_API_KEY", "")
+                if gemini_key:
+                    self._openai = openai_lib.OpenAI(api_key=gemini_key, base_url=_GEMINI_BASE)
+                    self._openai_async = openai_lib.AsyncOpenAI(api_key=gemini_key, base_url=_GEMINI_BASE)
                     self._llm_available = True
                 else:
-                    openai_key = getattr(settings, "OPENAI_API_KEY", "")
-                    if openai_key:
-                        self._openai = openai_lib.OpenAI(api_key=openai_key)
-                        self._openai_async = openai_lib.AsyncOpenAI(api_key=openai_key)
-                        self._llm_available = True
-                    else:
-                        logger.warning("LLM_BACKEND=openai 但 OPENAI_API_KEY 未設定，將回退到模板回答")
+                    logger.warning("LLM_BACKEND=gemini 但 GEMINI_API_KEY 未設定，將回退到模板回答")
             else:
-                logger.warning("缺少 openai 套件，無法使用 openai/ollama backend，將回退到模板回答")
+                logger.warning("缺少 openai 套件，無法使用 gemini backend，將回退到模板回答")
         elif self._llm_backend == "core":
             self._llm_available = True
         else:
             logger.warning(f"未知 LLM_BACKEND={self._llm_backend}，將回退到模板回答")
 
     def _model_name(self) -> str:
-        if self._llm_backend == "ollama":
-            return getattr(settings, "OLLAMA_MODEL", "gemma3:27b")
-        return getattr(settings, "OPENAI_MODEL", "gpt-4o-mini")
+        return getattr(settings, "GEMINI_MODEL", "gemini-2.0-flash-preview")
 
     @staticmethod
     def _messages_to_core_prompt(messages: List[Dict[str, str]]) -> str:
@@ -111,7 +103,7 @@ class ChatOrchestrator:
         temperature: float,
         max_tokens: int,
     ) -> str:
-        if self._llm_backend in ("openai", "ollama") and self._openai_async:
+        if self._llm_backend == "gemini" and self._openai_async:
             response = await self._openai_async.chat.completions.create(
                 model=self._model_name(),
                 messages=messages,
@@ -513,12 +505,12 @@ class ChatOrchestrator:
         )
 
         try:
-            if self._llm_backend in ("openai", "ollama") and self._openai_async:
+            if self._llm_backend == "gemini" and self._openai_async:
                 response = await self._openai_async.chat.completions.create(
                     model=self._model_name(),
                     messages=messages,
-                    temperature=getattr(settings, "OPENAI_TEMPERATURE", 0.3),
-                    max_tokens=getattr(settings, "OPENAI_MAX_TOKENS", 1500),
+                    temperature=getattr(settings, "LLM_TEMPERATURE", 0.3),
+                    max_tokens=getattr(settings, "LLM_MAX_TOKENS", 1500),
                     stream=True,
                 )
                 async for chunk in response:
@@ -536,8 +528,8 @@ class ChatOrchestrator:
             else:
                 answer = await self._llm_generate_async(
                     messages=messages,
-                    temperature=getattr(settings, "OPENAI_TEMPERATURE", 0.3),
-                    max_tokens=getattr(settings, "OPENAI_MAX_TOKENS", 1500),
+                    temperature=getattr(settings, "LLM_TEMPERATURE", 0.3),
+                    max_tokens=getattr(settings, "LLM_MAX_TOKENS", 1500),
                 )
                 output_sensitive = self._sensitive_content_reason(answer, direction="output")
                 if output_sensitive:
@@ -946,8 +938,8 @@ class ChatOrchestrator:
         messages = self._build_llm_messages(question, context, history=history)
         return await self._llm_generate_async(
             messages=messages,
-            temperature=getattr(settings, "OPENAI_TEMPERATURE", 0.3),
-            max_tokens=getattr(settings, "OPENAI_MAX_TOKENS", 1500),
+            temperature=getattr(settings, "LLM_TEMPERATURE", 0.3),
+            max_tokens=getattr(settings, "LLM_MAX_TOKENS", 1500),
         )
 
     @staticmethod

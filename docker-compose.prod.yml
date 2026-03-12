@@ -265,7 +265,7 @@ services:
     restart: always
     command: >
       redis-server
-        --requirepass ${ADMIN_REDIS_PASSWORD:-}
+        --requirepass ${ADMIN_REDIS_PASSWORD:?ADMIN_REDIS_PASSWORD is required}
         --maxmemory 128mb
         --maxmemory-policy allkeys-lru
     volumes:

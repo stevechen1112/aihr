@@ -1,11 +1,12 @@
 import os
+import asyncio
 import uuid
-import aiofiles
 from typing import Any, List, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+import boto3
 
 from app.api import deps
 from app.api.deps_permissions import check_document_permission, can_access_document_by_department
@@ -18,6 +19,16 @@ from app.tasks.document_tasks import process_document_task
 from app.services.quota_enforcement import enforce_document_quota
 
 router = APIRouter()
+
+
+def _get_r2_client():
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.R2_ENDPOINT,
+        aws_access_key_id=settings.R2_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+        region_name="auto",
+    )
 
 
 @router.get("/", response_model=List[Document])
@@ -140,19 +151,22 @@ async def upload_document(
         file_size=file_size
     )
     
-    # 5. 儲存文件
-    upload_dir = os.path.join(settings.UPLOAD_DIR, str(current_user.tenant_id))
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    file_path = os.path.join(upload_dir, f"{document.id}{file_ext}")
-    
-    async with aiofiles.open(file_path, "wb") as f:
-        await f.write(file_content)
-    
+    # 5. 上传文件到 Cloudflare R2
+    r2_key = f"{current_user.tenant_id}/{document.id}{file_ext}"
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(
+        None,
+        lambda: _get_r2_client().put_object(
+            Bucket=settings.R2_BUCKET,
+            Key=r2_key,
+            Body=file_content,
+        ),
+    )
+
     # 6. 觸發背景任務處理
     process_document_task.delay(
         document_id=str(document.id),
-        file_path=file_path,
+        file_path=r2_key,
         tenant_id=str(current_user.tenant_id)
     )
     
@@ -197,9 +211,10 @@ def delete_document(
 ) -> Any:
     """
     刪除文件
+    - 刪除 Pinecone 向量
+    - 刪除 PostgreSQL chunks（BM25 文字）
+    - 刪除 R2 原始檔案
     - 刪除資料庫記錄
-    - 刪除實體文件
-    - 刪除 pgvector 向量（透過 DB cascade 或手動刪除 chunks）
     - 權限：owner, admin, hr
     """
     # 權限檢查
@@ -221,35 +236,43 @@ def delete_document(
             detail="文件不存在"
         )
     
-    # 刪除向量（pgvector: chunks 含有 embedding，直接刪除 DB 記錄即可）
-    try:
-        chunks = (
-            crud_document.get_chunks(db, document_id=document_id)
-            if current_user.is_superuser
-            else crud_document.get_chunks_for_tenant(
-                db,
-                document_id=document_id,
-                tenant_id=current_user.tenant_id,
-            )
+    # 取得 chunks（供 Pinecone 刪除和 DB 清除用）
+    chunks = (
+        crud_document.get_chunks(db, document_id=document_id)
+        if current_user.is_superuser
+        else crud_document.get_chunks_for_tenant(
+            db,
+            document_id=document_id,
+            tenant_id=current_user.tenant_id,
         )
+    )
+
+    # 刪除向量（Pinecone）
+    try:
+        vector_ids = [c.vector_id for c in chunks if c.vector_id]
+        if vector_ids:
+            from pinecone import Pinecone
+            pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+            idx = pc.Index(settings.PINECONE_INDEX_NAME)
+            idx.delete(ids=vector_ids, namespace=str(document.tenant_id))
+    except Exception as e:
+        print(f"刪除 Pinecone 向量失敗: {e}")
+
+    # 刪除 PostgreSQL chunks
+    try:
         for chunk in chunks:
             db.delete(chunk)
         db.commit()
     except Exception as e:
         print(f"刪除向量 chunks 失敗: {e}")
-    
-    # 刪除實體文件
+
+    # 刪除 R2 文件
     try:
         file_ext = os.path.splitext(document.filename)[1]
-        file_path = os.path.join(
-            settings.UPLOAD_DIR,
-            str(document.tenant_id),
-            f"{document.id}{file_ext}"
-        )
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        r2_key = f"{document.tenant_id}/{document.id}{file_ext}"
+        _get_r2_client().delete_object(Bucket=settings.R2_BUCKET, Key=r2_key)
     except Exception as e:
-        print(f"刪除實體文件失敗: {e}")
+        print(f"刪除 R2 文件失敗: {e}")
     
     # 刪除資料庫記錄
     if current_user.is_superuser:
