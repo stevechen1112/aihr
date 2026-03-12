@@ -24,7 +24,9 @@ interface ChatMessage extends Message {
 export default function ChatPage() {
   const { user } = useAuth()
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [activeConvId, setActiveConvId] = useState<string | null>(null)
+  const [activeConvId, setActiveConvId] = useState<string | null>(
+    () => sessionStorage.getItem('chat_active_conv_id')
+  )
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -39,6 +41,15 @@ export default function ChatPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  // Abort any in-progress SSE stream when navigating away
+  useEffect(() => () => { abortRef.current?.abort() }, [])
+
+  // Persist active conversation across navigation
+  useEffect(() => {
+    if (activeConvId) sessionStorage.setItem('chat_active_conv_id', activeConvId)
+    else sessionStorage.removeItem('chat_active_conv_id')
+  }, [activeConvId])
 
   // Load conversations
   const loadConversations = useCallback(async () => {
@@ -55,6 +66,15 @@ export default function ChatPage() {
   useEffect(() => {
     loadConversations()
   }, [loadConversations])
+
+  // Validate restored activeConvId still exists after conversations load
+  useEffect(() => {
+    if (activeConvId && conversations.length > 0) {
+      if (!conversations.find(c => c.id === activeConvId)) {
+        setActiveConvId(null)
+      }
+    }
+  }, [conversations, activeConvId])
 
   // Load messages when conversation changes
   useEffect(() => {
