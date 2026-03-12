@@ -1,12 +1,13 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """在容器內直接創建超級管理員（不依賴 scripts/initial_data.py 掛載）"""
+import os
 import paramiko
 import sys
 import time
 
-HOST = "172.237.5.254"
+HOST = os.getenv("AIHR_SERVER_HOST", "")
 USER = "root"
-KEY_FILE = "C:/Users/User/.ssh/id_rsa_linode"
+KEY_FILE = os.getenv("AIHR_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa_linode"))
 PROJECT_DIR = "/opt/aihr"
 
 def run_ssh(ssh, cmd, timeout=120):
@@ -121,3 +122,4 @@ print("DONE")
 
 if __name__ == "__main__":
     sys.exit(main())
+

@@ -1,12 +1,13 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """SSH 到 Linode 伺服器並初始化資料庫"""
+import os
 import paramiko
 import sys
 import time
 
-HOST = "172.237.5.254"
+HOST = os.getenv("AIHR_SERVER_HOST", "")
 USER = "root"
-KEY_FILE = "C:/Users/User/.ssh/id_rsa_linode"
+KEY_FILE = os.getenv("AIHR_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa_linode"))
 
 commands = [
     "cd /opt/aihr && docker compose -f docker-compose.minimal.yml ps",
@@ -46,3 +47,4 @@ try:
 except Exception as e:
     print(f"❌ 錯誤: {e}")
     sys.exit(1)
+

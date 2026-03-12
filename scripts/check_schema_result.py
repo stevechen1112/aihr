@@ -1,9 +1,10 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Check actual DB columns for documents table and get fresh web errors"""
+import os
 import paramiko
 
-HOST = "172.237.5.254"
-KEY_FILE = "C:/Users/User/.ssh/id_rsa_linode"
+HOST = os.getenv("AIHR_SERVER_HOST", "")
+KEY_FILE = os.getenv("AIHR_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa_linode"))
 
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -65,3 +66,4 @@ out, _ = run("docker logs aihr-web --since 30s 2>&1 | tail -80")
 print(out if out else "(no output)")
 
 ssh.close()
+

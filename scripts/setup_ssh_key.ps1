@@ -6,9 +6,15 @@
 # ========================================================
 
 param(
-    [string]$ServerIP = "172.237.11.179",
+    [string]$ServerIP = "",
     [string]$Username = "root"
 )
+
+if (-not $ServerIP) {
+    Write-Host "ERROR: Please provide the server IP via -ServerIP parameter" -ForegroundColor Red
+    Write-Host "Usage: .\scripts\setup_ssh_key.ps1 -ServerIP <YOUR_SERVER_IP>" -ForegroundColor Yellow
+    exit 1
+}
 
 $SSHKeyPath = "$env:USERPROFILE\.ssh\id_rsa_linode"
 $SSHPubKeyPath = "$SSHKeyPath.pub"
@@ -75,7 +81,7 @@ Host aihr-linode
     HostName $ServerIP
     User $Username
     IdentityFile $SSHKeyPath
-    StrictHostKeyChecking no
+    StrictHostKeyChecking accept-new
 "@
 
 # 檢查是否已存在配置

@@ -1,10 +1,11 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Add Celery worker service to docker-compose.minimal.yml and start it."""
+import os
 import paramiko
 import time
 
-HOST = "172.237.5.254"
-KEY_FILE = "C:/Users/User/.ssh/id_rsa_linode"
+HOST = os.getenv("AIHR_SERVER_HOST", "")
+KEY_FILE = os.getenv("AIHR_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa_linode"))
 
 WORKER_BLOCK = """
   worker:
@@ -88,3 +89,4 @@ status, _, _ = run("docker ps --filter name=aihr-worker --format '{{.Status}}'")
 print(f"Worker status: {status}")
 
 ssh.close()
+

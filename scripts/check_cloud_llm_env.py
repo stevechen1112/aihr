@@ -1,9 +1,10 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Inspect cloud LLM/embedding settings and vector processing status (masked output)."""
+import os
 import paramiko
 
-HOST = "172.237.5.254"
-KEY_FILE = "C:/Users/User/.ssh/id_rsa_linode"
+HOST = os.getenv("AIHR_SERVER_HOST", "")
+KEY_FILE = os.getenv("AIHR_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa_linode"))
 
 SHOW_KEYS = {
     "OPENAI_MODEL",
@@ -85,3 +86,4 @@ out, _, _ = sql("SELECT COUNT(*) AS total_chunks, SUM(CASE WHEN embedding IS NOT
 print(out)
 
 ssh.close()
+

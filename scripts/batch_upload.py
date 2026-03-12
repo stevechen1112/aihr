@@ -3,10 +3,14 @@
 """
 import os, sys, time, requests, glob
 
-BASE_URL = "http://localhost:8000"
-HR_USER = "hr@taiyutech.com"
-HR_PASS = "Test1234!"
-DOC_DIR = os.path.join(os.path.dirname(__file__), "..", "test-data", "company-documents")
+BASE_URL = os.getenv("AIHR_BASE_URL", "http://localhost:8000")
+HR_USER = os.getenv("AIHR_HR_EMAIL")
+HR_PASS = os.getenv("AIHR_HR_PASS")
+DOC_DIR = os.getenv("AIHR_DOCS_DIR", os.path.join(os.path.dirname(__file__), "..", "test-data", "company-documents"))
+
+if not HR_USER or not HR_PASS:
+    print("ERROR: Set AIHR_HR_EMAIL and AIHR_HR_PASS environment variables before running this script.")
+    sys.exit(1)
 
 # 支援的副檔名
 SUPPORTED_EXT = {".pdf", ".txt", ".md", ".csv", ".jpg", ".jpeg", ".png", ".docx", ".xlsx", ".html", ".json", ".rtf"}

@@ -65,3 +65,12 @@ node_modules/
 test-data/test-results/run_*/
 test-data/test-results/live_*/
 test-data/test-results/*.json
+
+# ---------- 個人資料保護（PDPA）：禁止提交任何公司文件資料 ----------
+# 以下目錄含真實姓名、身分證號、薪資、健康紀錄等個人敏感資料
+# 若需測試資料，請使用完全虛構的匿名資料替代
+test-data/company-documents/
+test-data/test-results/
+
+# ---------- 一次性工具腳本 ----------
+scripts/_fix_secrets.py

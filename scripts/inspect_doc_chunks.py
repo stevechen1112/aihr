@@ -1,9 +1,10 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Inspect chunk counts and sample text for specific documents."""
+import os
 import paramiko
 
-HOST = "172.237.5.254"
-KEY_FILE = "C:/Users/User/.ssh/id_rsa_linode"
+HOST = os.getenv("AIHR_SERVER_HOST", "")
+KEY_FILE = os.getenv("AIHR_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa_linode"))
 
 DOC_IDS = {
     "新人到職SOP": "b6df40b4-f9a2-4876-9164-8a4bff909f1d",
@@ -49,3 +50,4 @@ for label, doc_id in DOC_IDS.items():
     print(out if out else "(no matches)")
 
 ssh.close()
+

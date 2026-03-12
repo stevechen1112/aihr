@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Remove documents/chunks for a tenant by name to ensure a clean test dataset."""
 import os
 import paramiko
 
-HOST = "172.237.5.254"
-KEY_FILE = "C:/Users/User/.ssh/id_rsa_linode"
+HOST = os.getenv("AIHR_SERVER_HOST", "")
+KEY_FILE = os.getenv("AIHR_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa_linode"))
 TENANT_NAME = os.getenv("AIHR_TENANT_NAME", "泰宇科技股份有限公司")
 
 ssh = paramiko.SSHClient()
@@ -46,3 +46,4 @@ _, err, rc = sql(f"DELETE FROM documents WHERE tenant_id = '{tenant_id}';")
 print("OK" if rc == 0 else err[:120])
 
 ssh.close()
+

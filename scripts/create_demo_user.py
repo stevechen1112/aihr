@@ -1,9 +1,19 @@
-import urllib.request, urllib.parse, json
+import urllib.request, urllib.parse, json, os, sys
 
-BASE = "http://api.172-237-5-254.sslip.io"
+BASE = os.getenv("AIHR_BASE_URL", "http://localhost:8000")
+SU_EMAIL = os.getenv("AIHR_SUPERUSER_EMAIL", "admin@example.com")
+SU_PASS = os.getenv("AIHR_SUPERUSER_PASS")
+DEMO_EMAIL = os.getenv("AIHR_DEMO_EMAIL", "demo@example.com")
+DEMO_PASS = os.getenv("AIHR_DEMO_PASS")
+DEMO_NAME = os.getenv("AIHR_DEMO_NAME", "Demo User")
+TENANT_KEYWORD = os.getenv("AIHR_TENANT_KEYWORD", "")
+
+if not SU_PASS or not DEMO_PASS:
+    print("ERROR: Set AIHR_SUPERUSER_PASS and AIHR_DEMO_PASS environment variables.")
+    sys.exit(1)
 
 # Superuser login
-d = urllib.parse.urlencode({"username": "admin@example.com", "password": "mcWzOEha0w7zKH9u53yG7Q"}).encode()
+d = urllib.parse.urlencode({"username": SU_EMAIL, "password": SU_PASS}).encode()
 r = urllib.request.urlopen(urllib.request.Request(
     BASE + "/api/v1/auth/login/access-token", data=d, method="POST",
     headers={"Content-Type": "application/x-www-form-urlencoded"}), timeout=15)
@@ -15,14 +25,20 @@ req = urllib.request.Request(BASE + "/api/v1/tenants/", headers={"Authorization"
 r = urllib.request.urlopen(req, timeout=10)
 tenants = json.loads(r.read())
 tlist = tenants if isinstance(tenants, list) else tenants.get("items", tenants.get("data", []))
-tenant = next((t for t in tlist if "泰宇" in t.get("name", "")), None)
+if TENANT_KEYWORD:
+    tenant = next((t for t in tlist if TENANT_KEYWORD in t.get("name", "")), None)
+else:
+    tenant = tlist[0] if tlist else None
+if not tenant:
+    print("ERROR: No matching tenant found. Set AIHR_TENANT_KEYWORD or check tenant list.")
+    sys.exit(1)
 print(f"Tenant: {tenant['name']} / {tenant['id']}")
 
-# Create steve user
+# Create demo user
 body = json.dumps({
-    "email": "steve@taiyutech.com",
-    "password": "admin123",
-    "full_name": "Steve",
+    "email": DEMO_EMAIL,
+    "password": DEMO_PASS,
+    "full_name": DEMO_NAME,
     "tenant_id": tenant["id"],
     "role": "admin"
 }).encode()
@@ -41,7 +57,7 @@ except urllib.error.HTTPError as e:
         print(f"HTTP {e.code}: {err[:200]}")
 
 # Verify login
-d = urllib.parse.urlencode({"username": "steve@taiyutech.com", "password": "admin123"}).encode()
+d = urllib.parse.urlencode({"username": DEMO_EMAIL, "password": DEMO_PASS}).encode()
 r = urllib.request.urlopen(urllib.request.Request(
     BASE + "/api/v1/auth/login/access-token", data=d, method="POST",
     headers={"Content-Type": "application/x-www-form-urlencoded"}), timeout=15)

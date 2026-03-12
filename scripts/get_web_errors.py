@@ -1,9 +1,10 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """查看 web 容器最新錯誤日誌"""
+import os
 import paramiko
 
-HOST = "172.237.5.254"
-KEY_FILE = "C:/Users/User/.ssh/id_rsa_linode"
+HOST = os.getenv("AIHR_SERVER_HOST", "")
+KEY_FILE = os.getenv("AIHR_SSH_KEY", os.path.expanduser("~/.ssh/id_rsa_linode"))
 
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -23,3 +24,4 @@ for cmd in cmds:
     print("-" * 60)
 
 ssh.close()
+

@@ -14,12 +14,16 @@ import time
 import os
 import sys
 
-BASE_URL = os.getenv("AIHR_BASE_URL", "http://api.172-237-5-254.sslip.io")
+BASE_URL = os.getenv("AIHR_BASE_URL", "http://localhost:8000")
 SUPERUSER_EMAIL = os.getenv("AIHR_SUPERUSER_EMAIL", "admin@example.com")
-SUPERUSER_PASSWORD = os.getenv("AIHR_SUPERUSER_PASS", "admin123")
-HR_EMAIL = os.getenv("AIHR_HR_EMAIL", "hr@taiyutech.com")
-HR_PASS = os.getenv("AIHR_HR_PASS", "Test1234!")
+SUPERUSER_PASSWORD = os.getenv("AIHR_SUPERUSER_PASS")
+HR_EMAIL = os.getenv("AIHR_HR_EMAIL")
+HR_PASS = os.getenv("AIHR_HR_PASS")
 TIMEOUT = 30
+
+if not SUPERUSER_PASSWORD or not HR_EMAIL or not HR_PASS:
+    print("ERROR: Set AIHR_SUPERUSER_PASS, AIHR_HR_EMAIL, and AIHR_HR_PASS environment variables before running this script.")
+    sys.exit(1)
 
 
 def _req(method, path, token="", **kwargs):

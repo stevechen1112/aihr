@@ -7,7 +7,7 @@
 
 param(
     [string]$ServerHost = "aihr-linode",  # 使用 SSH config 中的別名
-    [string]$ServerIP = "172.237.11.179",
+    [string]$ServerIP = "",               # 請透過 -ServerIP 參數指定，或在 SSH config 設定
     [string]$Username = "root",
     [string]$ProjectPath = "/opt/aihr",
     [switch]$SkipGitPush,                 # 跳過 Git push
