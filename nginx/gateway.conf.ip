@@ -1,0 +1,147 @@
+# ================================================================
+# Nginx Gateway — UniHR SaaS (IP Direct Access, no domain needed)
+# ================================================================
+#   Port 80   → Client frontend  (http://172.233.67.81/)
+#   Port 8080  → Admin frontend   (http://172.233.67.81:8080/)
+#   Port 3000  → Grafana          (http://172.233.67.81:3000/)
+#
+#   /api/v1/* and /api/v2/* are proxied to the respective backend
+#   from each port so SPA relative paths work without change.
+# ================================================================
+
+# ── Upstream Backends ──
+upstream backend {
+    server web:8000 max_fails=3 fail_timeout=30s;
+    keepalive 32;
+    keepalive_timeout 120s;
+    keepalive_requests 1000;
+}
+
+upstream admin_backend {
+    server admin-api:8001 max_fails=3 fail_timeout=30s;
+    keepalive 16;
+    keepalive_timeout 120s;
+}
+
+upstream frontend_app {
+    server frontend:80 max_fails=3 fail_timeout=10s;
+    keepalive 8;
+}
+
+upstream admin_frontend_app {
+    server admin-frontend:80 max_fails=3 fail_timeout=10s;
+    keepalive 8;
+}
+
+upstream grafana_app {
+    server grafana:3000;
+}
+
+# ================================================================
+# Port 80 — Client Frontend + API
+# ================================================================
+server {
+    listen 80 default_server;
+    server_name _;
+
+    client_max_body_size 100m;
+
+    # Docker / load-balancer health check
+    location = /health {
+        return 200 'ok';
+        add_header Content-Type text/plain;
+    }
+
+    # API v1 + v2 → backend
+    location /api/v1/ {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+    }
+
+    location /api/v2/ {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+    }
+
+    # Client frontend SPA — all other paths
+    location / {
+        proxy_pass http://frontend_app;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+
+# ================================================================
+# Port 8080 — Admin Frontend + Admin API
+# ================================================================
+server {
+    listen 8080;
+    server_name _;
+
+    client_max_body_size 10m;
+
+    # Admin API → admin_backend
+    location /api/v1/ {
+        proxy_pass http://admin_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Admin frontend SPA
+    location / {
+        proxy_pass http://admin_frontend_app;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+
+# ================================================================
+# Port 3000 — Grafana
+# ================================================================
+server {
+    listen 3000;
+    server_name _;
+
+    location / {
+        proxy_pass http://grafana_app;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
