@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     ALGORITHM: str = "HS256"
+    COOKIE_SECURE: bool | None = None  # None = auto (True if production/staging); set False for HTTP-only deploys
 
     # ── First superuser (used by scripts/initial_data.py) ──
     FIRST_SUPERUSER_EMAIL: str = "admin@example.com"

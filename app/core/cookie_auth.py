@@ -18,7 +18,7 @@ CSRF_COOKIE = "unihr_csrf"
 CSRF_HEADER = "X-CSRF-Token"
 
 # Cookie config
-_SECURE = settings.APP_ENV in ("production", "staging")
+_SECURE = settings.COOKIE_SECURE if settings.COOKIE_SECURE is not None else settings.APP_ENV in ("production", "staging")
 _SAMESITE = "lax"
 _DOMAIN = None  # browser will scope to the current domain
 
