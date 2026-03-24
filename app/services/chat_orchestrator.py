@@ -169,9 +169,28 @@ class ChatOrchestrator:
             except Exception as e:
                 return {"status": "error", "answer": "勞資法查詢失敗", "error": str(e)}
 
+        retrieval_timeout = max(1, int(getattr(settings, "CHAT_RETRIEVAL_TIMEOUT_SECONDS", 20)))
+
+        async def with_timeout(coro, fallback: Dict[str, Any], label: str):
+            try:
+                return await asyncio.wait_for(coro, timeout=retrieval_timeout)
+            except asyncio.TimeoutError:
+                logger.warning("%s timed out after %ss", label, retrieval_timeout)
+                timed_out = dict(fallback)
+                timed_out["error"] = "timeout"
+                return timed_out
+
         company_policy_result, labor_law_result = await asyncio.gather(
-            asyncio.create_task(get_company_policy()),
-            asyncio.create_task(get_labor_law()),
+            with_timeout(
+                get_company_policy(),
+                {"status": "error", "results": []},
+                "company policy retrieval",
+            ),
+            with_timeout(
+                get_labor_law(),
+                {"status": "error", "answer": "勞資法查詢逾時"},
+                "labor law retrieval",
+            ),
         )
 
         # 內規補強：根據問題關鍵字做語意補強檢索（同樣用 executor 避免阻塞）
@@ -179,7 +198,7 @@ class ChatOrchestrator:
             None,
             lambda: self._policy_boost_search(tenant_id, question, top_k),
         )
-        if boosted_results:
+        if boosted_results and company_policy_result.get("status") == "success":
             base_results = company_policy_result.get("results", [])
             merged = self._merge_policy_results(base_results, boosted_results, top_k)
             company_policy_result["status"] = "success"
@@ -823,8 +842,10 @@ class ChatOrchestrator:
 
         if self._llm_available and (ctx["has_policy"] or ctx["has_labor_law"]):
             try:
-                result["answer"] = await self._generate_answer(
-                    question, ctx, history=history
+                generation_timeout = max(1, int(getattr(settings, "CHAT_GENERATION_TIMEOUT_SECONDS", 20)))
+                result["answer"] = await asyncio.wait_for(
+                    self._generate_answer(question, ctx, history=history),
+                    timeout=generation_timeout,
                 )
                 output_sensitive = self._sensitive_content_reason(
                     result["answer"], direction="output"
@@ -835,6 +856,10 @@ class ChatOrchestrator:
                     result["notes"].append("Sensitive IO filter 已攔截輸出")
                 else:
                     result["notes"].append("由 AI 根據檢索結果生成回答")
+            except asyncio.TimeoutError:
+                logger.warning("LLM 回答生成逾時，回退到模板")
+                result["answer"] = self._fallback_answer(ctx)
+                result["notes"].append("LLM 生成逾時，以結構化格式呈現")
             except Exception as e:
                 logger.warning(f"LLM 回答生成失敗，回退到模板: {e}")
                 result["answer"] = self._fallback_answer(ctx)

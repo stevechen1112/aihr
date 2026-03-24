@@ -175,6 +175,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_USER: int = 60           # requests / minute per user
     RATE_LIMIT_PER_TENANT: int = 300        # requests / minute per tenant
     RATE_LIMIT_CHAT_PER_USER: int = 20      # chat requests / minute per user
+    CHAT_RETRIEVAL_TIMEOUT_SECONDS: int = 20
+    CHAT_GENERATION_TIMEOUT_SECONDS: int = 20
 
     # MFA enforcement for privileged roles (owner/admin/hr)
     MFA_REQUIRED_FOR_PRIVILEGED: bool = False

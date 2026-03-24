@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { LifeBuoy, Mail, BookOpen, Calendar, X } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { publicApi } from '../api'
 
 interface SupportConfig {
@@ -12,6 +13,7 @@ interface SupportConfig {
 export default function SupportWidget() {
   const [config, setConfig] = useState<SupportConfig | null>(null)
   const [open, setOpen] = useState(false)
+  const location = useLocation()
 
   useEffect(() => {
     publicApi.support().then(setConfig).catch(() => null)
@@ -19,8 +21,12 @@ export default function SupportWidget() {
 
   if (!config?.enabled) return null
 
+  const floatingPositionClass = location.pathname === '/'
+    ? 'bottom-24 right-5 md:bottom-28'
+    : 'bottom-5 right-5'
+
   return (
-    <div className="pointer-events-none fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
+    <div className={`pointer-events-none fixed z-40 flex flex-col items-end gap-3 ${floatingPositionClass}`}>
       {open && (
         <div className="pointer-events-auto w-80 rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl shadow-black/10">
           <div className="mb-4 flex items-start justify-between gap-3">
