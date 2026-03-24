@@ -29,6 +29,12 @@ section() {
   echo "══════════════════════════════════════════"
 }
 
+# Extract CSRF token from a cookie file
+get_csrf() {
+  local cookie_file="$1"
+  grep 'unihr_csrf' "$cookie_file" 2>/dev/null | awk '{print $NF}'
+}
+
 # ═══════════════════════════════════════
 #  SECTION 1: AUTHENTICATION
 # ═══════════════════════════════════════
@@ -183,8 +189,10 @@ else
 fi
 
 # Viewer should not upload documents
+CSRF_TOK=$(get_csrf /tmp/cookies_viewer.txt)
 HTTP=$(curl -sS -o /dev/null -w "%{http_code}" -b /tmp/cookies_viewer.txt \
   -X POST "${BASE}/documents/upload" \
+  -H "X-CSRF-Token: ${CSRF_TOK}" \
   -F "file=@/dev/null;filename=test.txt" 2>/dev/null)
 if [ "$HTTP" = "403" ] || [ "$HTTP" = "401" ]; then
   test_result "Viewer blocked from doc upload" "PASS" "HTTP ${HTTP}"
@@ -220,8 +228,10 @@ fi
 
 # Document upload (small text file)
 echo "This is a test document for UniHR testing." > /tmp/test_upload.txt
+CSRF_TOK=$(get_csrf /tmp/cookies_admin.txt)
 HTTP=$(curl -sS -o /tmp/upload_resp.json -w "%{http_code}" -b /tmp/cookies_admin.txt \
   -X POST "${BASE}/documents/upload" \
+  -H "X-CSRF-Token: ${CSRF_TOK}" \
   -F "file=@/tmp/test_upload.txt;type=text/plain" 2>/dev/null)
 if [ "$HTTP" = "200" ] || [ "$HTTP" = "201" ]; then
   DOC_ID=$(python3 -c "import json; print(json.load(open('/tmp/upload_resp.json')).get('id','?'))" 2>/dev/null)
@@ -242,9 +252,11 @@ if [ -n "$DOC_ID" ] && [ "$DOC_ID" != "?" ]; then
 fi
 
 # Chat - create conversation
+CSRF_TOK=$(get_csrf /tmp/cookies_admin.txt)
 HTTP=$(curl -sS -o /tmp/chat_resp.json -w "%{http_code}" -b /tmp/cookies_admin.txt \
   -X POST "${BASE}/chat/chat" \
   -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: ${CSRF_TOK}" \
   -d '{"message":"你好，這是測試訊息"}' 2>/dev/null)
 if [ "$HTTP" = "200" ]; then
   CONV_ID=$(python3 -c "import json; print(json.load(open('/tmp/chat_resp.json')).get('conversation_id','?'))" 2>/dev/null)
@@ -460,7 +472,7 @@ section "7. DATABASE INTEGRITY"
 
 # Check all expected tables exist
 TABLES=$(docker exec aihr-db-1 psql -U unihr -d unihr_saas -t -c "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename;" 2>/dev/null | tr -d ' ' | grep -v '^$')
-EXPECTED_TABLES="alembic_version audit_logs billing_records conversations departments document_chunks documents feature_permissions messages retrieval_traces tenants usage_records users"
+EXPECTED_TABLES="alembic_version auditlogs billing_records conversations departments documentchunks documents featurepermissions messages retrievaltraces tenants usagerecords users"
 for tbl in $EXPECTED_TABLES; do
   if echo "$TABLES" | grep -q "^${tbl}$"; then
     test_result "Table exists: ${tbl}" "PASS" "found"
@@ -581,9 +593,11 @@ fi
 section "10. ERROR HANDLING"
 
 # Invalid JSON
+CSRF_TOK=$(get_csrf /tmp/cookies_admin.txt)
 HTTP=$(curl -sS -o /dev/null -w "%{http_code}" -b /tmp/cookies_admin.txt \
   -X POST "${BASE}/chat/chat" \
   -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: ${CSRF_TOK}" \
   -d '{invalid json}' 2>/dev/null)
 if [ "$HTTP" = "422" ] || [ "$HTTP" = "400" ]; then
   test_result "Invalid JSON rejected" "PASS" "HTTP ${HTTP}"

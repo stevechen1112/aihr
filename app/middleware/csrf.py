@@ -1,6 +1,7 @@
 from fastapi import Request
+from fastapi.exceptions import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from app.core.cookie_auth import validate_csrf, ACCESS_COOKIE, REFRESH_COOKIE
 
@@ -28,6 +29,12 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         has_cookie_auth = bool(request.cookies.get(ACCESS_COOKIE) or request.cookies.get(REFRESH_COOKIE))
 
         if has_cookie_auth and path not in self.EXEMPT_PATHS:
-            validate_csrf(request)
+            try:
+                validate_csrf(request)
+            except HTTPException as exc:
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={"detail": exc.detail},
+                )
 
         return await call_next(request)
