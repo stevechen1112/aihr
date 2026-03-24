@@ -32,7 +32,7 @@ services:
     environment:
       - APP_ENV=production
       - RLS_ENFORCEMENT_ENABLED=true
-      - POSTGRES_SSL_MODE=disable
+      - POSTGRES_SSL_MODE=${POSTGRES_SSL_MODE:-require}
       - CLAMAV_ENABLED=true
       - CLAMAV_HOST=clamav
       - CLAMAV_PORT=3310
@@ -155,7 +155,7 @@ services:
     environment:
       - APP_ENV=production
       - RLS_ENFORCEMENT_ENABLED=true
-      - POSTGRES_SSL_MODE=disable
+      - POSTGRES_SSL_MODE=${POSTGRES_SSL_MODE:-require}
       - POSTGRES_SERVER=db
       - REDIS_HOST=redis
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
@@ -249,7 +249,7 @@ services:
       - "8001"
     environment:
       - APP_ENV=production
-      - POSTGRES_SSL_MODE=disable
+      - POSTGRES_SSL_MODE=${POSTGRES_SSL_MODE:-require}
       - POSTGRES_SERVER=db
       - REDIS_HOST=redis
       - ADMIN_REDIS_URL=redis://:${ADMIN_REDIS_PASSWORD}@admin-redis:6379/0

@@ -313,9 +313,9 @@ class Settings(BaseSettings):
                     "EMAIL_PROVIDER is not set. Password reset and invitation emails must be enabled in production."
                 )
             # ── DB SSL ──
-            if self.POSTGRES_SSL_MODE in ("disable", "prefer"):
+            if self.POSTGRES_SSL_MODE == "disable":
                 raise ValueError(
-                    f"POSTGRES_SSL_MODE='{self.POSTGRES_SSL_MODE}' is not allowed in production. Use 'require' or 'verify-full'."
+                    f"POSTGRES_SSL_MODE='{self.POSTGRES_SSL_MODE}' is not allowed in production. Use 'prefer', 'require' or 'verify-full'."
                 )
             if not self.CLAMAV_ENABLED:
                 raise ValueError("CLAMAV_ENABLED must be true in production/staging")
