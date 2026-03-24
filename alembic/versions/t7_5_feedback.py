@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 # revision identifiers
 revision = "t7_5_feedback"
-down_revision = "a1b2c3d4e5f6"
+down_revision = "t4_19_multi_region"
 branch_labels = None
 depends_on = None
 
