@@ -176,6 +176,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_TENANT: int = 300        # requests / minute per tenant
     RATE_LIMIT_CHAT_PER_USER: int = 20      # chat requests / minute per user
 
+    # MFA enforcement for privileged roles (owner/admin/hr)
+    MFA_REQUIRED_FOR_PRIVILEGED: bool = False
+
     # PostgreSQL RLS
     RLS_ENFORCEMENT_ENABLED: bool = True
 

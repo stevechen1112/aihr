@@ -16,7 +16,7 @@ api_router.include_router(feature_flags.router, prefix="/feature-flags", tags=["
 api_router.include_router(tenant_admin.router, prefix="/company", tags=["company-admin"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["cost-analytics"])
 api_router.include_router(public.router, prefix="/public", tags=["public"])
-api_router.include_router(custom_domains.router, prefix="/domains", tags=["custom-domains"])
+api_router.include_router(custom_domains.router, prefix="/custom-domains", tags=["custom-domains"])
 api_router.include_router(subscription.router, prefix="/subscription", tags=["subscription"])
 api_router.include_router(regions.router, prefix="/regions", tags=["multi-region"])
 api_router.include_router(billing.router, prefix="/billing", tags=["billing"])

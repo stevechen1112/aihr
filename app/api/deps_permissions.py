@@ -9,9 +9,12 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.crud import crud_permission
 from app.api import deps
+from app.config import settings
 
 
 def _ensure_privileged_mfa(current_user: User) -> None:
+    if not getattr(settings, "MFA_REQUIRED_FOR_PRIVILEGED", False):
+        return
     privileged = current_user.is_superuser or current_user.role in ["owner", "admin", "hr"]
     if privileged and not current_user.mfa_enabled:
         raise HTTPException(

@@ -17,6 +17,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/reset-password",
         "/api/v1/auth/accept-invite",
         "/api/v1/auth/sso/callback",
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/logout",
         "/api/v1/payment/notify",
         "/api/v1/payment/return",
     }
