@@ -21,12 +21,12 @@ export default function SupportWidget() {
 
   if (!config?.enabled) return null
 
-  const floatingPositionClass = location.pathname === '/'
-    ? 'bottom-24 right-5 md:bottom-28'
-    : 'bottom-5 right-5'
+  const wrapperClass = location.pathname === '/'
+    ? 'pointer-events-none fixed right-5 bottom-24 z-40 flex flex-col items-end gap-3 md:bottom-28'
+    : 'pointer-events-none fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3'
 
   return (
-    <div className={`pointer-events-none fixed z-40 flex flex-col items-end gap-3 ${floatingPositionClass}`}>
+    <div className={wrapperClass}>
       {open && (
         <div className="pointer-events-auto w-80 rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl shadow-black/10">
           <div className="mb-4 flex items-start justify-between gap-3">
