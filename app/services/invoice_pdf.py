@@ -34,7 +34,7 @@ def generate_invoice_pdf(record: BillingRecord, tenant: Tenant) -> io.BytesIO:
     # ── Company & Invoice Info ──
     info_data = [
         ["UniHR SaaS", f"Invoice #: {record.invoice_number or 'N/A'}"],
-        ["https://unihr.app", f"Date: {record.created_at.strftime('%Y-%m-%d') if record.created_at else 'N/A'}"],
+        ["", f"Date: {record.created_at.strftime('%Y-%m-%d') if record.created_at else 'N/A'}"],
         ["", f"Status: {record.status.upper()}"],
     ]
     info_table = Table(info_data, colWidths=[300, 230])
@@ -102,7 +102,7 @@ def generate_invoice_pdf(record: BillingRecord, tenant: Tenant) -> io.BytesIO:
     # ── Footer ──
     footer_style = ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8, textColor=colors.grey)
     story.append(Paragraph("Thank you for your business. This invoice was generated automatically by UniHR.", footer_style))
-    story.append(Paragraph("Questions? Contact sales@unihr.app", footer_style))
+    story.append(Paragraph("Questions? Contact support.", footer_style))
 
     doc.build(story)
     buf.seek(0)

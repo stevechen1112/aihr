@@ -64,8 +64,8 @@ REGIONS: Dict[str, RegionConfig] = {
         celery_broker_url=os.getenv("AP_CELERY_BROKER", "redis://redis:6379/0"),
         data_residency="資料儲存於台灣 GCP asia-east1 區域",
         compliance_notes="符合台灣個資法 (PDPA) 要求",
-        api_endpoint="https://api-ap.unihr.com",
-        cdn_endpoint="https://cdn-ap.unihr.com",
+        api_endpoint=os.getenv("AP_API_ENDPOINT", "https://api-ap.example.com"),
+        cdn_endpoint=os.getenv("AP_CDN_ENDPOINT", "https://cdn-ap.example.com"),
     ),
     "us": RegionConfig(
         code="us",
@@ -80,8 +80,8 @@ REGIONS: Dict[str, RegionConfig] = {
         celery_broker_url=os.getenv("US_CELERY_BROKER", "redis://redis-us:6379/0"),
         data_residency="Data stored in US GCP us-east1 region",
         compliance_notes="SOC 2 Type II compliant infrastructure",
-        api_endpoint="https://api-us.unihr.com",
-        cdn_endpoint="https://cdn-us.unihr.com",
+        api_endpoint=os.getenv("US_API_ENDPOINT", "https://api-us.example.com"),
+        cdn_endpoint=os.getenv("US_CDN_ENDPOINT", "https://cdn-us.example.com"),
     ),
     "eu": RegionConfig(
         code="eu",
@@ -96,8 +96,8 @@ REGIONS: Dict[str, RegionConfig] = {
         celery_broker_url=os.getenv("EU_CELERY_BROKER", "redis://redis-eu:6379/0"),
         data_residency="Data stored in EU GCP europe-west1 region (Frankfurt)",
         compliance_notes="GDPR compliant — data never leaves EU",
-        api_endpoint="https://api-eu.unihr.com",
-        cdn_endpoint="https://cdn-eu.unihr.com",
+        api_endpoint=os.getenv("EU_API_ENDPOINT", "https://api-eu.example.com"),
+        cdn_endpoint=os.getenv("EU_CDN_ENDPOINT", "https://cdn-eu.example.com"),
     ),
     "jp": RegionConfig(
         code="jp",
@@ -112,8 +112,8 @@ REGIONS: Dict[str, RegionConfig] = {
         celery_broker_url=os.getenv("JP_CELERY_BROKER", "redis://redis-jp:6379/0"),
         data_residency="データは日本 GCP asia-northeast1 リージョンに保存",
         compliance_notes="APPI (Act on Protection of Personal Information) 準拠",
-        api_endpoint="https://api-jp.unihr.com",
-        cdn_endpoint="https://cdn-jp.unihr.com",
+        api_endpoint=os.getenv("JP_API_ENDPOINT", "https://api-jp.example.com"),
+        cdn_endpoint=os.getenv("JP_CDN_ENDPOINT", "https://cdn-jp.example.com"),
     ),
 }
 

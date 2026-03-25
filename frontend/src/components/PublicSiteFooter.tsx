@@ -26,8 +26,8 @@ export default function PublicSiteFooter() {
         <div>
           <p className="text-sm font-semibold text-gray-900">聯絡與法務</p>
           <div className="mt-3 flex flex-col gap-2 text-sm text-gray-500">
-            <a href="mailto:support@unihr.app" className="transition-colors hover:text-gray-700">support@unihr.app</a>
-            <a href="mailto:sales@unihr.app" className="transition-colors hover:text-gray-700">sales@unihr.app</a>
+            <a href="mailto:support@example.com" className="transition-colors hover:text-gray-700">support@example.com</a>
+            <a href="mailto:sales@example.com" className="transition-colors hover:text-gray-700">sales@example.com</a>
             <Link to="/terms" className="transition-colors hover:text-gray-700">服務條款</Link>
             <Link to="/privacy" className="transition-colors hover:text-gray-700">隱私權政策</Link>
           </div>

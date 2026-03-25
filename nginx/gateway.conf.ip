@@ -3,7 +3,6 @@
 # ================================================================
 #   Port 80   → Client frontend  (http://172.233.67.81/)
 #   Port 8080  → Admin frontend   (http://172.233.67.81:8080/)
-#   Port 3000  → Grafana          (http://172.233.67.81:3000/)
 #
 #   /api/v1/* and /api/v2/* are proxied to the respective backend
 #   from each port so SPA relative paths work without change.
@@ -33,9 +32,6 @@ upstream admin_frontend_app {
     keepalive 8;
 }
 
-upstream grafana_app {
-    server grafana:3000;
-}
 
 # ================================================================
 # Port 80 — Client Frontend + API
@@ -127,21 +123,4 @@ server {
     }
 }
 
-# ================================================================
-# Port 3000 — Grafana
-# ================================================================
-server {
-    listen 3000;
-    server_name _;
 
-    location / {
-        proxy_pass http://grafana_app;
-        proxy_http_version 1.1;
-        proxy_set_header Connection "";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_connect_timeout 5s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
-}

@@ -37,44 +37,8 @@ def _set_progress(document_id: str, pct: int, detail: str = ""):
     except Exception:
         pass  # best-effort, 不影響主流程
 
-# ── Prometheus metrics (P1-6) ──
-try:
-    from prometheus_client import Counter, Histogram, Gauge, CollectorRegistry, REGISTRY
-
-    DOCUMENT_PARSE_DURATION = Histogram(
-        "document_parse_duration_seconds",
-        "Time to parse a single document",
-        ["file_type"],
-        buckets=(1, 5, 10, 30, 60, 120, 300),
-        registry=REGISTRY,
-    )
-    DOCUMENT_EMBED_DURATION = Histogram(
-        "document_embed_duration_seconds",
-        "Time to embed all chunks for a document",
-        buckets=(1, 5, 10, 30, 60, 120, 300),
-        registry=REGISTRY,
-    )
-    DOCUMENT_STORE_DURATION = Histogram(
-        "document_store_duration_seconds",
-        "Time to store vectors (Pinecone+PG) for a document",
-        buckets=(0.5, 1, 5, 10, 30, 60),
-        registry=REGISTRY,
-    )
-    CELERY_TASKS_TOTAL = Counter(
-        "celery_document_tasks_total",
-        "Total document tasks by stage and outcome",
-        ["stage", "outcome"],
-        registry=REGISTRY,
-    )
-    CELERY_QUEUE_ACTIVE = Gauge(
-        "celery_document_tasks_active",
-        "Currently active document tasks by stage",
-        ["stage"],
-        registry=REGISTRY,
-    )
-    _PROM = True
-except (ImportError, Exception):
-    _PROM = False
+# ── Metrics placeholders (removed third-party prometheus-client) ──
+_PROM = False
 
 
 def _extract_section_title(chunk_text: str) -> str:

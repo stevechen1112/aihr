@@ -315,7 +315,6 @@ services:
     ports:
       - "80:80"      # Client frontend + API
       - "8080:8080"  # Admin frontend + Admin API
-      - "3000:3000"  # Grafana
     volumes:
       - ./nginx/gateway.conf.ip:/etc/nginx/conf.d/default.conf:ro
     depends_on:
@@ -347,82 +346,7 @@ services:
         max-size: "20m"
         max-file: "5"
 
-  # ── Prometheus (T4-11) ──
-  prometheus:
-    image: prom/prometheus:v2.51.0
-    restart: always
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
-      - prometheus_data:/prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.retention.time=30d"
-      - "--web.enable-lifecycle"
-    expose:
-      - "9090"
-    depends_on:
-      - alertmanager
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.1'
-          memory: 128M
 
-  alertmanager:
-    image: prom/alertmanager:v0.27.0
-    restart: always
-    volumes:
-      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-    command:
-      - "--config.file=/etc/alertmanager/alertmanager.yml"
-      - "--config.expand-env"
-    environment:
-      - ALERTMANAGER_SMTP_SMARTHOST=${ALERTMANAGER_SMTP_SMARTHOST:?ALERTMANAGER_SMTP_SMARTHOST is required}
-      - ALERTMANAGER_SMTP_FROM=${ALERTMANAGER_SMTP_FROM:?ALERTMANAGER_SMTP_FROM is required}
-      - ALERTMANAGER_SMTP_AUTH_USERNAME=${ALERTMANAGER_SMTP_AUTH_USERNAME:?ALERTMANAGER_SMTP_AUTH_USERNAME is required}
-      - ALERTMANAGER_SMTP_AUTH_PASSWORD=${ALERTMANAGER_SMTP_AUTH_PASSWORD:?ALERTMANAGER_SMTP_AUTH_PASSWORD is required}
-      - ALERTMANAGER_EMAIL_TO=${ALERTMANAGER_EMAIL_TO:?ALERTMANAGER_EMAIL_TO is required}
-      - ALERTMANAGER_SLACK_WEBHOOK_URL=${ALERTMANAGER_SLACK_WEBHOOK_URL:?ALERTMANAGER_SLACK_WEBHOOK_URL is required}
-      - ALERTMANAGER_SLACK_CHANNEL=${ALERTMANAGER_SLACK_CHANNEL:-#alerts}
-    expose:
-      - "9093"
-    deploy:
-      resources:
-        limits:
-          cpus: '0.25'
-          memory: 128M
-        reservations:
-          cpus: '0.05'
-          memory: 32M
-
-  # ── Grafana (T4-11) ──
-  grafana:
-    image: grafana/grafana:10.4.0
-    restart: always
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD is required}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-https://grafana.unihr.com}
-    expose:
-      - "3000"
-    depends_on:
-      - prometheus
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 64M
 
 volumes:
   postgres_data:
@@ -430,5 +354,4 @@ volumes:
   admin_redis_data:
   clamav_data:
   uploads_data:
-  prometheus_data:
-  grafana_data:
+

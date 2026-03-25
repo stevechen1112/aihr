@@ -8,7 +8,6 @@ from app.middleware.versioning import APIVersionMiddleware, API_VERSIONS
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.ip_whitelist import AdminIPWhitelistMiddleware
 from app.middleware.request_logging import RequestLoggingMiddleware
-from app.middleware.metrics import PrometheusMiddleware, metrics_endpoint, set_app_info
 from app.middleware.custom_domain import CustomDomainMiddleware
 from app.middleware.csrf import CSRFMiddleware
 from app.logging_config import setup_logging
@@ -121,9 +120,6 @@ app.add_middleware(AdminIPWhitelistMiddleware)
 # Request logging middleware (T4-12) – request ID, timing, context
 app.add_middleware(RequestLoggingMiddleware)
 
-# Prometheus metrics middleware (T4-11) – request count, latency, in-progress
-app.add_middleware(PrometheusMiddleware)
-
 # Custom domain resolution middleware (T4-6) – resolves tenant from Host header
 app.add_middleware(CustomDomainMiddleware)
 
@@ -145,10 +141,6 @@ def root():
 @app.get("/health")
 def health_check():
     return {"status": "ok", "env": settings.APP_ENV}
-
-# Prometheus metrics endpoint (T4-11)
-app.add_route("/metrics", metrics_endpoint)
-set_app_info(version="1.0.0", env=settings.APP_ENV)
 
 @app.get("/api/versions")
 def api_versions():

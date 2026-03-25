@@ -29,7 +29,7 @@ class CustomDomainMiddleware(BaseHTTPMiddleware):
         # - sslip.io is our infra/testing domain, not a tenant custom domain
         # - Plain IP addresses are never custom domains
         if (
-            host in ("localhost", "127.0.0.1", "", "app.unihr.com", "admin.unihr.com")
+            host in ("localhost", "127.0.0.1", "")
             or "." not in host
             or host.endswith(".sslip.io")
             or _IP_RE.match(host)

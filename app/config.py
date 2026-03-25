@@ -189,7 +189,7 @@ class Settings(BaseSettings):
     EMAIL_PROVIDER: str = "resend"  # "resend" | "sendgrid" | "smtp" | "" (disabled)
     RESEND_API_KEY: str = ""
     SENDGRID_API_KEY: str = ""
-    EMAIL_FROM_ADDRESS: str = "noreply@unihr.app"
+    EMAIL_FROM_ADDRESS: str = "noreply@yourdomain.com"
     EMAIL_FROM_NAME: str = "UniHR"
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
@@ -199,7 +199,7 @@ class Settings(BaseSettings):
     FRONTEND_BASE_URL: str = "http://localhost:3001"  # For email link generation
 
     # Billing / payment links
-    BILLING_CONTACT_URL: str = "mailto:sales@unihr.app"
+    BILLING_CONTACT_URL: str = "mailto:sales@yourdomain.com"
     BACKEND_BASE_URL: str = "http://localhost:8000"
 
     # NewebPay 藍新金流
@@ -223,9 +223,9 @@ class Settings(BaseSettings):
 
     # Support widget
     SUPPORT_WIDGET_ENABLED: bool = True
-    SUPPORT_EMAIL: str = "support@unihr.app"
-    SUPPORT_DOCS_URL: str = "https://unihr.app/docs"
-    SUPPORT_BOOKING_URL: str = "mailto:support@unihr.app?subject=UniHR%20Support"
+    SUPPORT_EMAIL: str = "support@yourdomain.com"
+    SUPPORT_DOCS_URL: str = "https://yourdomain.com/docs"
+    SUPPORT_BOOKING_URL: str = "mailto:support@yourdomain.com?subject=Support"
 
     # Admin API Network Isolation (T4-4)
     ADMIN_IP_WHITELIST_ENABLED: bool = False   # Enable in production
