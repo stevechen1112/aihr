@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, ArrowRight, Minus } from 'lucide-react'
+import PublicSiteNav from '../components/PublicSiteNav'
+import PublicSiteFooter from '../components/PublicSiteFooter'
 
 const PLANS = [
   {
@@ -86,22 +88,7 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link to="/" className="text-xl font-bold tracking-tight text-gray-900">
-            Uni<span className="text-[#d15454]">HR</span>
-          </Link>
-          <div className="flex items-center gap-6">
-            <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
-              登入
-            </Link>
-            <Link to="/signup" className="rounded-lg bg-[#d15454] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#c04444] transition-colors">
-              免費開始
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <PublicSiteNav />
 
       {/* Header */}
       <section className="bg-gradient-to-b from-rose-50/50 to-white pb-10 pt-16">
@@ -267,16 +254,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-100 bg-gray-50 py-10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 sm:flex-row sm:justify-between">
-          <p className="text-sm text-gray-400">&copy; {new Date().getFullYear()} UniHR. All rights reserved.</p>
-          <div className="flex gap-6 text-sm text-gray-400">
-            <Link to="/terms" className="hover:text-gray-600 transition-colors">服務條款</Link>
-            <Link to="/privacy" className="hover:text-gray-600 transition-colors">隱私權政策</Link>
-          </div>
-        </div>
-      </footer>
+      <PublicSiteFooter />
     </div>
   )
 }

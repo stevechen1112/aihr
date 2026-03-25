@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 import { MessageSquare, FileText, Shield, Users, Zap, BarChart3, ArrowRight, Check } from 'lucide-react'
+import PublicSiteNav from '../components/PublicSiteNav'
+import PublicSiteFooter from '../components/PublicSiteFooter'
 
 const FEATURES = [
   { icon: MessageSquare, title: 'AI 智慧問答', desc: '上傳公司規章，員工直接用自然語言提問，AI人資長即時回覆正確答案。' },
@@ -19,28 +21,7 @@ const STEPS = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link to="/" className="text-xl font-bold tracking-tight text-gray-900">
-            Uni<span className="text-[#d15454]">HR</span>
-          </Link>
-          <div className="flex items-center gap-6">
-            <Link to="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
-              方案與價格
-            </Link>
-            <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
-              登入
-            </Link>
-            <Link
-              to="/signup"
-              className="rounded-lg bg-[#d15454] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#c04444] transition-colors"
-            >
-              免費開始
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <PublicSiteNav />
 
       {/* Hero */}
       <section className="relative overflow-hidden">
@@ -80,7 +61,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section className="border-t border-gray-100 bg-gray-50/50 py-20">
+      <section id="how-it-works" className="border-t border-gray-100 bg-gray-50/50 py-20 scroll-mt-24">
         <div className="mx-auto max-w-5xl px-6">
           <h2 className="text-center text-3xl font-bold text-gray-900">三步驟開始使用</h2>
           <p className="mt-3 text-center text-gray-500">簡單到不需要教學</p>
@@ -99,7 +80,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section className="py-20">
+      <section id="features" className="py-20 scroll-mt-24">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-center text-3xl font-bold text-gray-900">核心功能</h2>
           <p className="mt-3 text-center text-gray-500">專為台灣企業人資場景打造</p>
@@ -141,6 +122,52 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
+      <section id="faq" className="border-t border-gray-100 bg-white py-20 scroll-mt-24">
+        <div className="mx-auto max-w-4xl px-6">
+          <h2 className="text-center text-3xl font-bold text-gray-900">常見問題</h2>
+          <div className="mt-12 grid gap-5 md:grid-cols-2">
+            {[
+              ['多久可以上線？', '一般企業可在同一天完成註冊、上傳制度文件並開始問答。'],
+              ['員工能看到其他公司資料嗎？', '不會。平台採多租戶隔離與列級安全控制，資料不會跨公司外洩。'],
+              ['是否支援 SSO 與品牌化？', 'Pro 與 Enterprise 方案提供 SSO、品牌設定與更完整管理能力。'],
+              ['如果要導入企業版怎麼開始？', '可先從公開方案試用，或直接透過 sales@unihr.app 聯繫顧問安排導入。'],
+            ].map(([question, answer]) => (
+              <div key={question} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-6 shadow-sm">
+                <h3 className="text-base font-semibold text-gray-900">{question}</h3>
+                <p className="mt-3 text-sm leading-6 text-gray-500">{answer}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="contact" className="border-t border-gray-100 bg-gray-50/70 py-20 scroll-mt-24">
+        <div className="mx-auto grid max-w-5xl gap-8 px-6 md:grid-cols-[1.3fr_1fr] md:items-center">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900">想了解導入方式？</h2>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-gray-500">
+              如果你想評估企業導入、SSO、白標品牌或自訂域名，可以先看方案，也可以直接聯繫我們安排示範。
+            </p>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <a href="mailto:sales@unihr.app" className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-black">
+                聯絡業務
+              </a>
+              <Link to="/pricing" className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50">
+                查看方案
+              </Link>
+            </div>
+          </div>
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+            <p className="text-sm font-semibold text-gray-900">聯絡資訊</p>
+            <div className="mt-4 space-y-3 text-sm text-gray-500">
+              <p>業務信箱：sales@unihr.app</p>
+              <p>客服信箱：support@unihr.app</p>
+              <p>法務與 DPA：privacy@unihr.app</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="py-20">
         <div className="mx-auto max-w-3xl px-6 text-center">
           <h2 className="text-3xl font-bold text-gray-900">準備好了嗎？</h2>
@@ -157,16 +184,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-100 bg-gray-50 py-10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 sm:flex-row sm:justify-between">
-          <p className="text-sm text-gray-400">&copy; {new Date().getFullYear()} UniHR. All rights reserved.</p>
-          <div className="flex gap-6 text-sm text-gray-400">
-            <Link to="/terms" className="hover:text-gray-600 transition-colors">服務條款</Link>
-            <Link to="/privacy" className="hover:text-gray-600 transition-colors">隱私權政策</Link>
-          </div>
-        </div>
-      </footer>
+      <PublicSiteFooter />
     </div>
   )
 }

@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom'
+import PublicSiteFooter from '../components/PublicSiteFooter'
+import PublicSiteNav from '../components/PublicSiteNav'
 
 const sections = [
   {
@@ -78,7 +80,9 @@ const sections = [
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-[linear-gradient(135deg,#fffaf5_0%,#fff3f0_55%,#f8ede8_100%)] px-4 py-10 text-gray-900">
+    <div className="min-h-screen bg-[linear-gradient(135deg,#fffaf5_0%,#fff3f0_55%,#f8ede8_100%)] text-gray-900">
+      <PublicSiteNav />
+      <div className="px-4 py-10">
       <div className="mx-auto max-w-4xl overflow-hidden rounded-[32px] border border-white/70 bg-white/90 shadow-2xl backdrop-blur">
         <div className="border-b border-orange-100 bg-[radial-gradient(circle_at_top_right,_rgba(251,146,60,0.14),_transparent_38%),linear-gradient(135deg,#fff,#fff7ed)] px-8 py-10 md:px-12">
           <p className="text-sm font-medium uppercase tracking-[0.28em] text-orange-600">UniHR Legal</p>
@@ -106,10 +110,12 @@ export default function TermsPage() {
 
           <div className="flex items-center justify-between gap-4 border-t border-gray-100 pt-6 text-sm text-gray-500">
             <span>最後更新：2026-03-23</span>
-            <Link to="/login" className="font-medium text-orange-600 transition-colors hover:text-orange-700">返回登入</Link>
+            <Link to="/" className="font-medium text-orange-600 transition-colors hover:text-orange-700">返回首頁</Link>
           </div>
         </div>
       </div>
+      </div>
+      <PublicSiteFooter />
     </div>
   )
 }
