@@ -108,6 +108,13 @@ def _resolve_tenant(db: Session, metadata: dict) -> Optional[Tenant]:
     tenant_id = metadata.get("tenant_id")
     if not tenant_id:
         return None
+    try:
+        import uuid as _uuid
+
+        _uuid.UUID(str(tenant_id))
+    except ValueError:
+        logger.warning("_resolve_tenant: invalid UUID format: %s", tenant_id)
+        return None
     return db.query(Tenant).filter(Tenant.id == tenant_id).first()
 
 
@@ -136,6 +143,7 @@ def _handle_checkout_completed(db: Session, session: dict):
     existing = db.query(BillingRecord).filter(BillingRecord.external_id == external_id).first()
     if existing:
         logger.info("checkout.session.completed: duplicate for %s, skipping", external_id)
+        db.rollback()
         return
 
     # Create billing record
@@ -212,7 +220,12 @@ def _handle_invoice_paid(db: Session, invoice: dict):
         created_at=datetime.now(timezone.utc),
     )
     db.add(record)
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error("Invoice commit failed for tenant %s: %s", tenant.id, e)
+        raise
 
     logger.info("Invoice recorded for tenant %s: %s %.2f", tenant.id, currency, amount)
 

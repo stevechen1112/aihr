@@ -77,9 +77,9 @@ def set_auth_cookies(
 
 def clear_auth_cookies(response: Response) -> None:
     """Remove all auth cookies."""
-    response.delete_cookie(ACCESS_COOKIE, path="/")
-    response.delete_cookie(REFRESH_COOKIE, path="/api/v1/auth/refresh")
-    response.delete_cookie(CSRF_COOKIE, path="/")
+    response.delete_cookie(ACCESS_COOKIE, path="/", secure=_SECURE, samesite=_SAMESITE)
+    response.delete_cookie(REFRESH_COOKIE, path="/api/v1/auth/refresh", secure=_SECURE, samesite=_SAMESITE)
+    response.delete_cookie(CSRF_COOKIE, path="/", secure=_SECURE, samesite=_SAMESITE)
 
 
 def extract_access_token(request: Request) -> str | None:

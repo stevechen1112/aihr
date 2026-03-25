@@ -32,7 +32,7 @@ def run_ssl_provisioning(domain: str) -> ProvisionCommandResult:
     if not template:
         return ProvisionCommandResult(False, "SSL automation command is not configured")
 
-    command = _split_command(template.format(domain=domain))
+    command = _split_command(template.replace("{domain}", domain))
     completed = subprocess.run(
         command,
         capture_output=True,
@@ -49,7 +49,7 @@ def run_ssl_provisioning(domain: str) -> ProvisionCommandResult:
     reload_command = (settings.CUSTOM_DOMAIN_SSL_RELOAD_COMMAND or "").strip()
     if reload_command:
         reload_result = subprocess.run(
-            _split_command(reload_command.format(domain=domain)),
+            _split_command(reload_command.replace("{domain}", domain)),
             capture_output=True,
             text=True,
             timeout=settings.CUSTOM_DOMAIN_SSL_TIMEOUT_SECONDS,

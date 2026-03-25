@@ -1,7 +1,7 @@
 """Billing record model for tracking payments and invoices."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, Numeric, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -28,6 +28,6 @@ class BillingRecord(Base):
     period_start = Column(DateTime, nullable=True)
     period_end = Column(DateTime, nullable=True)
     invoice_number = Column(String(100), nullable=True, unique=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     tenant = relationship("Tenant", backref="billing_records")

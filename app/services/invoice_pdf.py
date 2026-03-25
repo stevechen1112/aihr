@@ -50,7 +50,7 @@ def generate_invoice_pdf(record: BillingRecord, tenant: Tenant) -> io.BytesIO:
             "",
             f"Date: {record.created_at.strftime('%Y-%m-%d') if record.created_at else 'N/A'}",
         ],
-        ["", f"Status: {record.status.upper()}"],
+        ["", f"Status: {(record.status or 'unknown').upper()}"],
     ]
     info_table = Table(info_data, colWidths=[300, 230])
     info_table.setStyle(
@@ -89,7 +89,7 @@ def generate_invoice_pdf(record: BillingRecord, tenant: Tenant) -> io.BytesIO:
             record.description or "Subscription",
             (record.plan or "").capitalize(),
             period_str or "-",
-            f"${float(record.amount_usd):.2f} {record.currency}",
+            f"${float(record.amount_usd or 0):.2f} {record.currency}",
         ],
     ]
     items_table = Table(items_data, colWidths=[200, 80, 130, 120])
@@ -118,7 +118,7 @@ def generate_invoice_pdf(record: BillingRecord, tenant: Tenant) -> io.BytesIO:
 
     # ── Total ──
     total_data = [
-        ["", "", "Total:", f"${float(record.amount_usd):.2f} {record.currency}"],
+        ["", "", "Total:", f"${float(record.amount_usd or 0):.2f} {record.currency}"],
     ]
     total_table = Table(total_data, colWidths=[200, 80, 130, 120])
     total_table.setStyle(

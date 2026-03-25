@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 @celery_app.task(name="onboarding.send_step1", bind=True, max_retries=2)
 def send_onboarding_step1_task(self, user_id: str, tenant_id: str):
     """Day 1: Quick-start guide email."""
-    db = create_session()
+    db = create_session(tenant_id=tenant_id)
     try:
         from app.models.user import User
         from app.models.tenant import Tenant
@@ -51,7 +51,7 @@ def send_onboarding_step1_task(self, user_id: str, tenant_id: str):
 @celery_app.task(name="onboarding.send_step2", bind=True, max_retries=2)
 def send_onboarding_step2_task(self, user_id: str, tenant_id: str):
     """Day 3: Document upload check + reminder or congratulations."""
-    db = create_session()
+    db = create_session(tenant_id=tenant_id)
     try:
         from app.models.user import User
         from app.models.tenant import Tenant

@@ -76,9 +76,11 @@ def _send_via_smtp(
         msg["To"] = to_email
         msg.attach(MIMEText(html_body, "html"))
 
+        import ssl as _ssl
+
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
             if settings.SMTP_USE_TLS:
-                server.starttls()
+                server.starttls(context=_ssl.create_default_context())
             if settings.SMTP_USERNAME:
                 server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
             server.sendmail(settings.EMAIL_FROM_ADDRESS, [to_email], msg.as_string())
@@ -310,7 +312,7 @@ def send_payment_success_email(
     <p>您的 <strong>{_esc(plan)}</strong> 方案付款已完成。</p>
     <table style="width:100%; border-collapse:collapse; margin:16px 0; font-size:14px;">
       <tr><td style="padding:8px 0; color:#666;">交易編號</td><td style="padding:8px 0; font-weight:600;">{_esc(trade_no)}</td></tr>
-      <tr><td style="padding:8px 0; color:#666;">金額</td><td style="padding:8px 0; font-weight:600;">{amount}</td></tr>
+      <tr><td style="padding:8px 0; color:#666;">金額</td><td style="padding:8px 0; font-weight:600;">{_esc(str(amount))}</td></tr>
     </table>
     <p style="text-align:center; margin:24px 0;">
       <a href="{settings.FRONTEND_BASE_URL}/subscription"
