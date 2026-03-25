@@ -321,3 +321,306 @@ def budget_alerts(
     # 依嚴重程度排序
     alerts.sort(key=lambda a: (0 if a.alert_type == "exceeded" else 1, -(a.usage_ratio or 0)))
     return alerts
+
+
+# ═══════════════════════════════════════════
+#  Platform P&L（收支總覽）
+# ═══════════════════════════════════════════
+
+class MonthlyPnLRow(BaseModel):
+    month: str  # "2026-03"
+    revenue: float = 0.0
+    cost: float = 0.0
+    profit: float = 0.0
+    margin_pct: Optional[float] = None
+
+
+class PlatformPnLSummary(BaseModel):
+    # 本月
+    current_month: str
+    monthly_revenue: float = 0.0
+    monthly_cost: float = 0.0
+    monthly_profit: float = 0.0
+    monthly_margin_pct: Optional[float] = None
+    # 累計
+    total_revenue: float = 0.0
+    total_cost: float = 0.0
+    total_profit: float = 0.0
+    # MRR（當月活躍租戶 × 方案月費）
+    mrr: float = 0.0
+    # 租戶分佈
+    free_tenants: int = 0
+    pro_tenants: int = 0
+    enterprise_tenants: int = 0
+    # 歷史趨勢
+    monthly_trend: List[MonthlyPnLRow] = []
+    # 支出分類
+    cost_by_action: List[dict] = []
+
+
+class TenantPnLRow(BaseModel):
+    tenant_id: str
+    tenant_name: str
+    plan: Optional[str] = None
+    status: Optional[str] = None
+    user_count: int = 0
+    document_count: int = 0
+    monthly_revenue: float = 0.0
+    monthly_cost: float = 0.0
+    monthly_profit: float = 0.0
+    margin_pct: Optional[float] = None
+    monthly_queries: int = 0
+    monthly_tokens: int = 0
+    avg_cost_per_query: float = 0.0
+
+
+@router.get("/platform-pnl", response_model=PlatformPnLSummary)
+def platform_pnl_summary(
+    months: int = Query(6, ge=1, le=24, description="歷史趨勢月數"),
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(require_superuser),
+) -> Any:
+    """
+    平台收支總覽：收入（BillingRecord paid）vs 支出（UsageRecord estimated_cost_usd）
+    """
+    from app.models.billing import BillingRecord
+    from app.services.subscription import PLAN_MATRIX
+
+    now = datetime.utcnow()
+    current_month_str = now.strftime("%Y-%m")
+    month_start = datetime(now.year, now.month, 1)
+
+    # ── 本月收入（已付款帳單）──
+    monthly_revenue = float(
+        db.query(func.coalesce(func.sum(BillingRecord.amount_usd), 0))
+        .filter(
+            BillingRecord.status == "paid",
+            BillingRecord.created_at >= month_start,
+        )
+        .scalar() or 0
+    )
+
+    # ── 本月支出（API 成本）──
+    monthly_cost = float(
+        db.query(func.coalesce(func.sum(UsageRecord.estimated_cost_usd), 0))
+        .filter(UsageRecord.created_at >= month_start)
+        .scalar() or 0
+    )
+
+    monthly_profit = monthly_revenue - monthly_cost
+    monthly_margin_pct = round(monthly_profit / monthly_revenue * 100, 1) if monthly_revenue > 0 else None
+
+    # ── 累計收入 / 支出 ──
+    total_revenue = float(
+        db.query(func.coalesce(func.sum(BillingRecord.amount_usd), 0))
+        .filter(BillingRecord.status == "paid")
+        .scalar() or 0
+    )
+    total_cost = float(
+        db.query(func.coalesce(func.sum(UsageRecord.estimated_cost_usd), 0))
+        .scalar() or 0
+    )
+
+    # ── MRR：活躍租戶方案月費加總 ──
+    active_tenants = db.query(Tenant).filter(Tenant.status == "active").all()
+    mrr = 0.0
+    free_count = pro_count = ent_count = 0
+    for t in active_tenants:
+        plan = t.plan or "free"
+        plan_cfg = PLAN_MATRIX.get(plan, PLAN_MATRIX["free"])
+        mrr += plan_cfg["price_monthly_usd"]
+        if plan == "free":
+            free_count += 1
+        elif plan == "pro":
+            pro_count += 1
+        elif plan == "enterprise":
+            ent_count += 1
+
+    # ── 歷史月度趨勢 ──
+    monthly_trend = []
+    for i in range(months - 1, -1, -1):
+        y = now.year
+        m = now.month - i
+        while m <= 0:
+            m += 12
+            y -= 1
+        ms = datetime(y, m, 1)
+        if m == 12:
+            me = datetime(y + 1, 1, 1)
+        else:
+            me = datetime(y, m + 1, 1)
+
+        rev = float(
+            db.query(func.coalesce(func.sum(BillingRecord.amount_usd), 0))
+            .filter(BillingRecord.status == "paid", BillingRecord.created_at >= ms, BillingRecord.created_at < me)
+            .scalar() or 0
+        )
+        cost = float(
+            db.query(func.coalesce(func.sum(UsageRecord.estimated_cost_usd), 0))
+            .filter(UsageRecord.created_at >= ms, UsageRecord.created_at < me)
+            .scalar() or 0
+        )
+        profit = rev - cost
+        margin = round(profit / rev * 100, 1) if rev > 0 else None
+        monthly_trend.append(MonthlyPnLRow(
+            month=f"{y}-{m:02d}",
+            revenue=round(rev, 2),
+            cost=round(cost, 6),
+            profit=round(profit, 2),
+            margin_pct=margin,
+        ))
+
+    # ── 支出分類（按 action_type）──
+    cost_by_action_rows = (
+        db.query(
+            UsageRecord.action_type,
+            func.count(UsageRecord.id).label("count"),
+            func.coalesce(func.sum(UsageRecord.estimated_cost_usd), 0).label("cost"),
+        )
+        .filter(UsageRecord.created_at >= month_start)
+        .group_by(UsageRecord.action_type)
+        .order_by(func.sum(UsageRecord.estimated_cost_usd).desc().nullslast())
+        .all()
+    )
+    cost_by_action = [
+        {"action_type": r.action_type or "unknown", "count": r.count, "cost": round(float(r.cost or 0), 6)}
+        for r in cost_by_action_rows
+    ]
+
+    return PlatformPnLSummary(
+        current_month=current_month_str,
+        monthly_revenue=round(monthly_revenue, 2),
+        monthly_cost=round(monthly_cost, 6),
+        monthly_profit=round(monthly_profit, 2),
+        monthly_margin_pct=monthly_margin_pct,
+        total_revenue=round(total_revenue, 2),
+        total_cost=round(total_cost, 6),
+        total_profit=round(total_revenue - total_cost, 2),
+        mrr=round(mrr, 2),
+        free_tenants=free_count,
+        pro_tenants=pro_count,
+        enterprise_tenants=ent_count,
+        monthly_trend=monthly_trend,
+        cost_by_action=cost_by_action,
+    )
+
+
+# ═══════════════════════════════════════════
+#  Per-Tenant P&L（租戶收支明細）
+# ═══════════════════════════════════════════
+
+@router.get("/tenant-pnl", response_model=List[TenantPnLRow])
+def tenant_pnl_list(
+    year: int = Query(None),
+    month: int = Query(None),
+    sort_by: str = Query("profit", description="排序欄位: profit, cost, revenue, margin_pct"),
+    order: str = Query("asc", description="排序方向: asc, desc"),
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(require_superuser),
+) -> Any:
+    """
+    各租戶本月收支明細，含毛利與毛利率。
+    """
+    from app.models.billing import BillingRecord
+    from app.models.user import User as UserModel
+    from app.services.subscription import PLAN_MATRIX
+
+    now = datetime.utcnow()
+    y = year or now.year
+    m = month or now.month
+    ms = datetime(y, m, 1)
+    me = datetime(y + 1, 1, 1) if m == 12 else datetime(y, m + 1, 1)
+
+    # 所有租戶
+    tenants = db.query(Tenant).all()
+
+    # 本月收入 by tenant
+    rev_rows = (
+        db.query(
+            BillingRecord.tenant_id,
+            func.coalesce(func.sum(BillingRecord.amount_usd), 0).label("revenue"),
+        )
+        .filter(BillingRecord.status == "paid", BillingRecord.created_at >= ms, BillingRecord.created_at < me)
+        .group_by(BillingRecord.tenant_id)
+        .all()
+    )
+    rev_map = {str(r.tenant_id): float(r.revenue) for r in rev_rows}
+
+    # 本月支出 by tenant
+    cost_rows = (
+        db.query(
+            UsageRecord.tenant_id,
+            func.count(UsageRecord.id).label("queries"),
+            func.coalesce(func.sum(UsageRecord.input_tokens + UsageRecord.output_tokens), 0).label("tokens"),
+            func.coalesce(func.sum(UsageRecord.estimated_cost_usd), 0).label("cost"),
+        )
+        .filter(UsageRecord.created_at >= ms, UsageRecord.created_at < me)
+        .group_by(UsageRecord.tenant_id)
+        .all()
+    )
+    cost_map = {str(r.tenant_id): r for r in cost_rows}
+
+    # 用戶數 by tenant
+    user_counts = dict(
+        db.query(UserModel.tenant_id, func.count(UserModel.id))
+        .group_by(UserModel.tenant_id)
+        .all()
+    )
+
+    # 文件數 by tenant
+    from app.models.document import Document
+    doc_counts = dict(
+        db.query(Document.tenant_id, func.count(Document.id))
+        .group_by(Document.tenant_id)
+        .all()
+    )
+
+    result = []
+    for t in tenants:
+        tid = str(t.id)
+        plan = t.plan or "free"
+        plan_cfg = PLAN_MATRIX.get(plan, PLAN_MATRIX["free"])
+
+        # 收入：實際帳單 or 方案月費（Free 視為 0）
+        rev = rev_map.get(tid, plan_cfg["price_monthly_usd"])
+        cost_row = cost_map.get(tid)
+        cost = float(cost_row.cost) if cost_row else 0.0
+        queries = cost_row.queries if cost_row else 0
+        tokens = int(cost_row.tokens) if cost_row else 0
+
+        profit = rev - cost
+        margin = round(profit / rev * 100, 1) if rev > 0 else None
+        avg_cpq = round(cost / queries, 6) if queries > 0 else 0.0
+
+        result.append(TenantPnLRow(
+            tenant_id=tid,
+            tenant_name=t.name,
+            plan=plan,
+            status=t.status,
+            user_count=user_counts.get(t.id, 0),
+            document_count=doc_counts.get(t.id, 0),
+            monthly_revenue=round(rev, 2),
+            monthly_cost=round(cost, 6),
+            monthly_profit=round(profit, 2),
+            margin_pct=margin,
+            monthly_queries=queries,
+            monthly_tokens=tokens,
+            avg_cost_per_query=avg_cpq,
+        ))
+
+    # 排序
+    allowed_sorts = {"profit", "cost", "revenue", "margin_pct", "monthly_queries", "monthly_tokens"}
+    sort_field = sort_by if sort_by in allowed_sorts else "profit"
+    field_map = {
+        "profit": "monthly_profit",
+        "cost": "monthly_cost",
+        "revenue": "monthly_revenue",
+        "margin_pct": "margin_pct",
+        "monthly_queries": "monthly_queries",
+        "monthly_tokens": "monthly_tokens",
+    }
+    attr = field_map.get(sort_field, "monthly_profit")
+    reverse = order.lower() != "asc"
+    result.sort(key=lambda r: getattr(r, attr) or 0, reverse=reverse)
+
+    return result

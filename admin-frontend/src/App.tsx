@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import AdminPage from './pages/AdminPage'
 import AdminQuotaPage from './pages/AdminQuotaPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import PnLPage from './pages/PnLPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, loading, user } = useAuth()
@@ -20,6 +21,7 @@ function AppRoutes() {
       <Route path="/login" element={token && user?.is_superuser ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<AdminPage />} />
+        <Route path="pnl" element={<PnLPage />} />
         <Route path="quotas" element={<AdminQuotaPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
       </Route>

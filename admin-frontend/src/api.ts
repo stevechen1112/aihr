@@ -66,6 +66,11 @@ export const analyticsApi = {
   anomalies: (params?: Record<string, string>) =>
     api.get('/analytics/anomalies', { params }).then(r => r.data),
   budgetAlerts: () => api.get('/analytics/budget-alerts').then(r => r.data),
+  // ─ P&L ─
+  platformPnl: (params?: Record<string, string>) =>
+    api.get('/analytics/platform-pnl', { params }).then(r => r.data),
+  tenantPnl: (params?: Record<string, string>) =>
+    api.get('/analytics/tenant-pnl', { params }).then(r => r.data),
 }
 
 export default api
