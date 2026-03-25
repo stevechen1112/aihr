@@ -44,11 +44,13 @@ test.describe('Login Flow', () => {
 
   test('should redirect unauthenticated user to login', async ({ page }) => {
     await page.goto('/app/documents')
+    await page.waitForURL(/login/, { timeout: 12000 })
     await expect(page).toHaveURL(/login/)
   })
 
   test('legacy protected route should redirect into login flow', async ({ page }) => {
     await page.goto('/usage')
+    await page.waitForURL(/login/, { timeout: 12000 })
     await expect(page).toHaveURL(/login/)
   })
 })
