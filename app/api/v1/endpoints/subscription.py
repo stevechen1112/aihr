@@ -20,7 +20,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api import deps
-from app.core.config import settings
+from app.config import settings
 from app.models.user import User
 from app.models.tenant import Tenant
 from app.models.audit import UsageRecord
