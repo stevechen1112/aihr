@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 /**
  * /login/callback
  * Handles the OAuth redirect. Reads ?code=...&state=tenantId from URL,
- * exchanges the code via backend, and redirects to /.
+ * exchanges the code via backend, and redirects to /app.
  */
 export default function SSOCallbackPage() {
   const { loginWithSSO } = useAuth()
@@ -54,7 +54,7 @@ export default function SSOCallbackPage() {
         sessionStorage.removeItem('sso_provider')
         sessionStorage.removeItem('sso_state')
         sessionStorage.removeItem('sso_code_verifier')
-        navigate('/', { replace: true })
+        navigate('/app', { replace: true })
       })
       .catch((err: unknown) => {
         const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'SSO 登入失敗'

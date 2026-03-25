@@ -7,20 +7,20 @@ import clsx from 'clsx'
 import SupportWidget from './SupportWidget'
 
 const navItems = [
-  { to: '/', icon: MessageSquare, label: 'AI 問答' },
-  { to: '/documents', icon: FileText, label: '文件管理' },
-  { to: '/my-usage', icon: Activity, label: '我的用量' },
-  { to: '/usage', icon: BarChart3, label: '用量統計', roles: ['owner', 'admin'] },
-  { to: '/audit', icon: ClipboardList, label: '稽核日誌', roles: ['owner', 'admin'] },
-  { to: '/departments', icon: Building2, label: '部門管理', roles: ['owner', 'admin', 'hr'] },
-  { to: '/company', icon: Building2, label: '公司管理', roles: ['owner', 'admin'] },
-  { to: '/branding', icon: Palette, label: '品牌設定', roles: ['owner', 'admin'] },
-  { to: '/subscription', icon: CreditCard, label: '訂閱方案', roles: ['owner', 'admin'] },
-  { to: '/custom-domains', icon: Globe, label: '自訂域名', roles: ['owner', 'admin'] },
-  { to: '/regions', icon: MapPin, label: '區域資訊', roles: ['owner', 'admin'] },
-  { to: '/rag-dashboard', icon: Gauge, label: 'RAG 儀表板', roles: ['owner', 'admin', 'hr'] },
-  { to: '/quality-dashboard', icon: ShieldCheck, label: '品質監控', roles: ['owner', 'admin'] },
-  { to: '/sso-settings', icon: KeyRound, label: 'SSO 設定', roles: ['owner', 'admin'] },
+  { to: '/app', icon: MessageSquare, label: 'AI 問答' },
+  { to: '/app/documents', icon: FileText, label: '文件管理' },
+  { to: '/app/my-usage', icon: Activity, label: '我的用量' },
+  { to: '/app/usage', icon: BarChart3, label: '用量統計', roles: ['owner', 'admin'] },
+  { to: '/app/audit', icon: ClipboardList, label: '稽核日誌', roles: ['owner', 'admin'] },
+  { to: '/app/departments', icon: Building2, label: '部門管理', roles: ['owner', 'admin', 'hr'] },
+  { to: '/app/company', icon: Building2, label: '公司管理', roles: ['owner', 'admin'] },
+  { to: '/app/branding', icon: Palette, label: '品牌設定', roles: ['owner', 'admin'] },
+  { to: '/app/subscription', icon: CreditCard, label: '訂閱方案', roles: ['owner', 'admin'] },
+  { to: '/app/custom-domains', icon: Globe, label: '自訂域名', roles: ['owner', 'admin'] },
+  { to: '/app/regions', icon: MapPin, label: '區域資訊', roles: ['owner', 'admin'] },
+  { to: '/app/rag-dashboard', icon: Gauge, label: 'RAG 儀表板', roles: ['owner', 'admin', 'hr'] },
+  { to: '/app/quality-dashboard', icon: ShieldCheck, label: '品質監控', roles: ['owner', 'admin'] },
+  { to: '/app/sso-settings', icon: KeyRound, label: 'SSO 設定', roles: ['owner', 'admin'] },
 ]
 
 export default function Layout() {
@@ -72,7 +72,7 @@ export default function Layout() {
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
+            end={to === '/app'}
             onClick={() => setSidebarOpen(false)}
             className={({ isActive }) =>
               clsx(

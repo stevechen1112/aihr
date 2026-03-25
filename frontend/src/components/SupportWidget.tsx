@@ -22,6 +22,8 @@ export default function SupportWidget() {
   if (!config?.enabled) return null
 
   const wrapperClass = location.pathname === '/'
+    || location.pathname === '/pricing'
+    || location.pathname === '/signup'
     ? 'pointer-events-none fixed right-5 bottom-24 z-40 flex flex-col items-end gap-3 md:bottom-28'
     : 'pointer-events-none fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3'
 

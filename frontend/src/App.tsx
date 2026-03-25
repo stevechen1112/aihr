@@ -26,6 +26,22 @@ import PricingPage from './pages/PricingPage'
 import SignupPage from './pages/SignupPage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 
+const legacyAppRoutes = [
+  'documents',
+  'my-usage',
+  'usage',
+  'audit',
+  'departments',
+  'company',
+  'sso-settings',
+  'branding',
+  'subscription',
+  'custom-domains',
+  'rag-dashboard',
+  'quality-dashboard',
+  'regions',
+] as const
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, loading } = useAuth()
   if (loading) return <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" /></div>
@@ -35,7 +51,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function RoleGuard({ children, roles }: { children: React.ReactNode; roles: string[] }) {
   const { user } = useAuth()
-  if (!user || !roles.includes(user.role)) return <Navigate to="/" replace />
+  if (!user || !roles.includes(user.role)) return <Navigate to="/app" replace />
   return <>{children}</>
 }
 
@@ -43,16 +59,24 @@ function AppRoutes() {
   const { token } = useAuth()
   return (
     <Routes>
-      <Route path="/welcome" element={token ? <Navigate to="/" replace /> : <LandingPage />} />
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/welcome" element={<Navigate to="/" replace />} />
       <Route path="/pricing" element={<PricingPage />} />
-      <Route path="/signup" element={token ? <Navigate to="/" replace /> : <SignupPage />} />
+      <Route path="/signup" element={token ? <Navigate to="/app" replace /> : <SignupPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
-      <Route path="/login" element={token ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/login" element={token ? <Navigate to="/app" replace /> : <LoginPage />} />
       <Route path="/login/callback" element={<SSOCallbackPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/accept-invite" element={<AcceptInvitePage />} />
-      <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+      {legacyAppRoutes.map((path) => (
+        <Route
+          key={path}
+          path={`/${path}`}
+          element={<Navigate to={`/app/${path}`} replace />}
+        />
+      ))}
+      <Route path="/app" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<ChatPage />} />
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="my-usage" element={<MyUsagePage />} />
@@ -68,7 +92,7 @@ function AppRoutes() {
         <Route path="quality-dashboard" element={<RoleGuard roles={['owner', 'admin']}><QualityDashboardPage /></RoleGuard>} />
         <Route path="regions" element={<RoleGuard roles={['owner', 'admin']}><RegionsPage /></RoleGuard>} />
       </Route>
-      <Route path="*" element={token ? <Navigate to="/" replace /> : <Navigate to="/welcome" replace />} />
+      <Route path="*" element={token ? <Navigate to="/app" replace /> : <Navigate to="/" replace />} />
     </Routes>
   )
 }
