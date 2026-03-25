@@ -17,7 +17,7 @@ def generate_secrets() -> dict[str, str]:
         "POSTGRES_PASSWORD": secrets.token_urlsafe(32),
         "REDIS_PASSWORD": secrets.token_urlsafe(24),
         "ADMIN_REDIS_PASSWORD": secrets.token_urlsafe(24),
-        "GRAFANA_PASSWORD": secrets.token_urlsafe(16),
+        "∫ ±±≠∂≠±_PASSWORD": secrets.token_urlsafe(16),
     }
 
 
@@ -56,9 +56,9 @@ def main():
         with open(target, "w", encoding="utf-8") as f:
             f.write(content)
 
-        print(f"‚úÖ Patched {replacements} secrets into {target}")
+        print(f"??Patched {replacements} secrets into {target}")
         print(f"   (CELERY URLs also updated with Redis password)")
-        print(f"\n‚ö†Ô∏è  Remember to also set:")
+        print(f"\n?†Ô?  Remember to also set:")
         print(f"   - FIRST_SUPERUSER_EMAIL")
         print(f"   - FIRST_SUPERUSER_PASSWORD")
         print(f"   - OPENAI_API_KEY")
@@ -69,7 +69,7 @@ def main():
 
     # Default: just print the secrets
     print("=" * 60)
-    print("  UniHR SaaS ‚Äî Generated Production Secrets")
+    print("  UniHR SaaS ??Generated Production Secrets")
     print("=" * 60)
     for key, value in generated.items():
         print(f"{key}={value}")

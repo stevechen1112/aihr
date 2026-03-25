@@ -12,8 +12,8 @@ UniHR now includes a built-in floating support widget in the main product UI.
 
 ```env
 SUPPORT_WIDGET_ENABLED=true
-SUPPORT_EMAIL=support@unihr.app
-SUPPORT_DOCS_URL=https://unihr.app/docs
+SUPPORT_EMAIL=support@yourdomain.com
+SUPPORT_DOCS_URL=https://yourdomain.com/docs
 SUPPORT_BOOKING_URL=https://cal.com/unihr/support
 ```
 

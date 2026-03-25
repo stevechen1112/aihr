@@ -343,7 +343,7 @@ export default function CustomDomainsPage() {
                         </li>
                       </ol>
                       <p className="mt-3 text-xs text-amber-600">
-                        此外，請新增 <strong>CNAME</strong> 記錄將 <code>{d.domain}</code> 指向 <code>app.unihr.com</code>
+                        此外，請新增 <strong>CNAME</strong> 記錄將 <code>{d.domain}</code> 指向 <code>app.yourdomain.com</code>
                       </p>
                     </div>
                   )}

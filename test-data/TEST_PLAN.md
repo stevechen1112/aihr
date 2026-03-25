@@ -2,7 +2,7 @@
 
 **計畫版本**: v1.0  
 **擬定日期**: 2026-02-10  
-**測試環境**: 本機 Docker (localhost) + Core API (https://ai.unihr.com.tw)
+**測試環境**: 本機 Docker (localhost) + Core API (https://api.example.com)
 
 ---
 
@@ -107,7 +107,7 @@
 ```bash
 # 0.2 Superuser 登入
 TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login/access-token \
-  -d "username=admin@unihr.com&password=changethis" | jq -r '.access_token')
+  -d "username=admin@example.com&password=changethis" | jq -r '.access_token')
 
 # 0.3 建立租戶
 TENANT_ID=$(curl -s -X POST http://localhost:8000/api/v1/tenants/ \

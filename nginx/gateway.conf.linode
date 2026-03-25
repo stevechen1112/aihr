@@ -9,7 +9,7 @@
 #   - Connection failure tolerance
 # ================================================================
 
-# ?ï¿½?ï¿½ Upstream Backends ?ï¿½?ï¿½
+# ?ï¿?ï¿?Upstream Backends ?ï¿?ï¿?
 upstream backend {
     server web:8000 max_fails=3 fail_timeout=30s;
     keepalive 32;
@@ -33,12 +33,12 @@ upstream admin_frontend_app {
     keepalive 8;
 }
 
-upstream grafana {
-    server grafana:3000;
+upstream ºÊ±±­¶­± {
+    server ºÊ±±­¶­±:3000;
 }
 
 # ================================================================
-# 0. Default server â€” Docker health check / catch-all
+# 0. Default server ??Docker health check / catch-all
 # ================================================================
 server {
     listen 80 default_server;
@@ -53,7 +53,7 @@ server {
 }
 
 # ================================================================
-# 1. API Server â€” api.172-233-67-81.sslip.io
+# 1. API Server ??api.172-233-67-81.sslip.io
 # ================================================================
 server {
     listen 80;
@@ -165,27 +165,9 @@ server {
     }
 }
 
-# ================================================================
-# 3. Grafana ??grafana.172-233-67-81.sslip.io
-# ================================================================
-server {
-    listen 80;
-    server_name grafana.172-233-67-81.sslip.io;
-
-    location / {
-        proxy_pass http://grafana;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-}
 
 # ================================================================
-# 4. Client Frontend ??app.172-233-67-81.sslip.io (default)
+# 3. Client Frontend ??app.172-233-67-81.sslip.io (default)
 # ================================================================
 server {
     listen 80;

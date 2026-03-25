@@ -38,7 +38,7 @@ const sections = [
       '三、請求補充或更正資料。',
       '四、請求停止蒐集、處理或利用。',
       '五、請求刪除個人資料。',
-      '上述權利不得預先拋棄或以特約限制。行使方式：登入後至「帳號設定」操作，或寄信至 privacy@unihr.app。本公司將於 15 日內回覆。',
+      '上述權利不得預先拋棄或以特約限制。行使方式：登入後至「帳號設定」操作，或寄信至 privacy@example.com。本公司將於 15 日內回覆。',
     ],
   },
   {
@@ -73,8 +73,8 @@ const sections = [
     title: '8. 蒐集者名稱及聯絡方式（個資法第 8 條第 1 項第 1 款）',
     items: [
       '名稱：UniHR（運營公司名稱依營業登記為準）。',
-      '個資保護聯絡信箱：privacy@unihr.app',
-      '客服信箱：support@unihr.app',
+      '個資保護聯絡信箱：privacy@example.com',
+      '客服信箱：support@example.com',
     ],
   },
 ]
@@ -106,7 +106,7 @@ export default function PrivacyPage() {
           ))}
 
           <section className="rounded-2xl border border-dashed border-rose-200 bg-rose-50/70 px-6 py-5 text-sm leading-6 text-gray-700">
-            如需資料保護補充條款（DPA）、子處理者變更通知或資料刪除申請，請寄信至 privacy@unihr.app。
+            如需資料保護補充條款（DPA）、子處理者變更通知或資料刪除申請，請寄信至 privacy@example.com。
             <span className="mt-2 block text-gray-500">
               相關文件：<Link to="/terms" className="text-[#d15454] hover:underline">服務條款</Link>
             </span>

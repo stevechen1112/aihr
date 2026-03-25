@@ -1,6 +1,6 @@
 # UniHR Security Whitepaper
 
-> Version 1.0 â€” Last updated: 2025
+> Version 1.0 ??Last updated: 2025
 
 ## 1. Executive Summary
 
@@ -11,7 +11,7 @@ UniHR is a multi-tenant SaaS platform providing AI-powered HR knowledge manageme
 | Layer          | Technology                                                   |
 | -------------- | ------------------------------------------------------------ |
 | Frontend       | React + TypeScript, served via Nginx with CSP headers        |
-| API Gateway    | Nginx â€” rate limiting, TLS termination, security headers     |
+| API Gateway    | Nginx ??rate limiting, TLS termination, security headers     |
 | Backend        | Python / FastAPI, OAuth2 Bearer JWT authentication           |
 | Task Queue     | Celery + Redis (broker & result backend)                     |
 | Database       | PostgreSQL 16 with Row-Level Security (RLS)                  |
@@ -19,7 +19,7 @@ UniHR is a multi-tenant SaaS platform providing AI-powered HR knowledge manageme
 | Object Storage | Cloudflare R2 (S3-compatible, encrypted at rest)             |
 | LLM            | Google Gemini (generation), Voyage AI (embeddings)           |
 | Email          | SendGrid transactional email                                 |
-| Monitoring     | Prometheus + Grafana + Alertmanager                          |
+| Monitoring     | ¦Û¬ãºÊ±±»P§iÄµ                          |
 | Container      | Docker Compose (dev/staging/production)                      |
 
 ## 3. Authentication & Authorization
@@ -47,7 +47,7 @@ UniHR is a multi-tenant SaaS platform providing AI-powered HR knowledge manageme
 ### 3.3 Multi-Factor Authentication (MFA)
 
 - TOTP-based 2FA using RFC 6238 (compatible with Google Authenticator, Authy).
-- Pure-Python implementation â€” no dependency on `pyotp` runtime.
+- Pure-Python implementation ??no dependency on `pyotp` runtime.
 - Configurable TOTP window (default Â±1 interval for clock skew tolerance).
 - Admin 2FA for platform admin panel with separate enforcement.
 
@@ -63,9 +63,9 @@ UniHR is a multi-tenant SaaS platform providing AI-powered HR knowledge manageme
 | Role       | Scope                                     |
 | ---------- | ----------------------------------------- |
 | superuser  | Platform-wide admin, bypasses RLS         |
-| owner      | Tenant owner â€” billing, user management   |
-| admin      | Tenant admin â€” user & document management |
-| employee   | Standard user â€” chat, document viewing    |
+| owner      | Tenant owner ??billing, user management   |
+| admin      | Tenant admin ??user & document management |
+| employee   | Standard user ??chat, document viewing    |
 
 ## 4. Tenant Isolation
 
@@ -96,7 +96,7 @@ UniHR is a multi-tenant SaaS platform providing AI-powered HR knowledge manageme
 
 ### 5.1 TLS Configuration
 
-- **TLS 1.2+ enforced** â€” weak protocols disabled.
+- **TLS 1.2+ enforced** ??weak protocols disabled.
 - Cipher suite: `HIGH:!aNULL:!MD5`.
 - HSTS header: `max-age=63072000; includeSubDomains; preload`.
 - SSL session caching: shared 10m, timeout 1 day.
@@ -139,17 +139,17 @@ Multi-layer rate limiting using Redis sliding window:
 ### 6.2 File Upload Security
 
 - **ClamAV malware scanning:** all uploaded files scanned before processing.
-- Configurable `CLAMAV_FAIL_CLOSED=True` â€” files rejected if scanner is unavailable.
+- Configurable `CLAMAV_FAIL_CLOSED=True` ??files rejected if scanner is unavailable.
 - Maximum file size: 50 MB.
 - Files stored in Cloudflare R2 with tenant-scoped paths.
 
 ### 6.3 LLM Security
 
-- **Prompt injection guard:** configurable block patterns for injection attempts (e.g. "ignore previous instructions", "system prompt", "è¶Šæ¬Š").
+- **Prompt injection guard:** configurable block patterns for injection attempts (e.g. "ignore previous instructions", "system prompt", "è¶Šæ?").
 - **Sensitive data filter (input):** blocks PII patterns (ID numbers, credit cards, passwords, OTP).
 - **Sensitive data filter (output):** strips API keys, tokens, system prompts from LLM responses.
 - **Guardrail toggle:** `LLM_GUARDRAIL_ENABLED` for runtime control.
-- Tenant documents are scoped â€” RAG retrieval only returns chunks belonging to the requesting tenant.
+- Tenant documents are scoped ??RAG retrieval only returns chunks belonging to the requesting tenant.
 
 ## 7. Audit & Compliance
 
@@ -194,9 +194,9 @@ Sub-processors with data handling scope:
 
 ### 8.2 Monitoring & Alerting
 
-- **Prometheus:** metrics collection from backend, Celery, PostgreSQL, Redis, Nginx.
-- **Grafana:** dashboards for system health, API performance, resource utilization.
-- **Alertmanager:** 30+ alert rules across categories:
+- **ºÊ±±«ü¼Ð:** metrics collection from backend, Celery, PostgreSQL, Redis, Nginx.
+- **ºÊ±±­¶­±:** dashboards for system health, API performance, resource utilization.
+- **§iÄµªA°È:** 30+ alert rules across categories:
   - Backend: high error rates, slow response times
   - Security: auth failures, abuse detection
   - Infrastructure: disk, memory, CPU thresholds
@@ -231,7 +231,7 @@ Sub-processors with data handling scope:
 
 ## 10. Incident Response
 
-- Grafana + Alertmanager provide real-time detection of anomalies.
+- ºÊ±±­¶­±»P§iÄµªA°È provide real-time detection of anomalies.
 - Abuse detection automatically blocks offending IPs for 10 minutes.
 - Audit logs provide forensic trail for investigations.
 - Operations SOP documented in `OPS_SOP.md`.
@@ -240,10 +240,10 @@ Sub-processors with data handling scope:
 
 | Framework       | Status                                                  |
 | --------------- | ------------------------------------------------------- |
-| Taiwan PDPA     | Compliant â€” DPA, data deletion SOP, audit retention     |
-| OWASP Top 10    | Addressed â€” injection, auth, access control, headers    |
-| SOC 2 Type II   | Readiness â€” audit logs, access control, monitoring      |
-| GDPR (reference)| Partial â€” DPA sub-processors, data export, deletion     |
+| Taiwan PDPA     | Compliant ??DPA, data deletion SOP, audit retention     |
+| OWASP Top 10    | Addressed ??injection, auth, access control, headers    |
+| SOC 2 Type II   | Readiness ??audit logs, access control, monitoring      |
+| GDPR (reference)| Partial ??DPA sub-processors, data export, deletion     |
 
 ---
 

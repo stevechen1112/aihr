@@ -101,7 +101,7 @@ Assessment:
 
 ### 3. Auditability and observability are above average
 
-The platform includes structured request logging, request IDs, and tamper-evident audit log hashing. Monitoring support with Prometheus and Alertmanager is also present in the repository.
+The platform includes structured request logging, request IDs, and tamper-evident audit log hashing. Monitoring support with �ʱ����� and �iĵ�A�� is also present in the repository.
 
 Positive indicators:
 
@@ -148,15 +148,15 @@ Assessment:
 
 ### High: Access tokens are stored in localStorage
 
-**Status: ✅ REMEDIATED (2026-03-24)**
+**Status: ??REMEDIATED (2026-03-24)**
 
 Implementation:
-- Created `app/core/cookie_auth.py` — HttpOnly, Secure, SameSite=lax cookies for access and refresh tokens
-- Created `app/middleware/csrf.py` — CSRF double-submit validation middleware
-- Updated `app/api/v1/endpoints/auth.py` — login, MFA verify, refresh, and new logout endpoint all use cookie-based auth
-- Updated `app/api/deps.py` — token extraction from cookies first, Bearer header fallback
-- Updated `frontend/src/api.ts` — withCredentials, CSRF header injection, automatic silent refresh
-- Updated `frontend/src/auth.tsx` — removed all localStorage token storage
+- Created `app/core/cookie_auth.py` ??HttpOnly, Secure, SameSite=lax cookies for access and refresh tokens
+- Created `app/middleware/csrf.py` ??CSRF double-submit validation middleware
+- Updated `app/api/v1/endpoints/auth.py` ??login, MFA verify, refresh, and new logout endpoint all use cookie-based auth
+- Updated `app/api/deps.py` ??token extraction from cookies first, Bearer header fallback
+- Updated `frontend/src/api.ts` ??withCredentials, CSRF header injection, automatic silent refresh
+- Updated `frontend/src/auth.tsx` ??removed all localStorage token storage
 - Access token lifetime reduced from 8 hours to 30 minutes
 - All `localStorage.getItem/setItem('token')` references removed from frontend
 
@@ -190,7 +190,7 @@ Priority:
 
 ### Medium-High: Critical production controls are not all enforced as startup blockers
 
-**Status: ✅ REMEDIATED (2026-03-24)**
+**Status: ??REMEDIATED (2026-03-24)**
 
 Implementation:
 - `app/config.py` `_validate_production_security()` now raises `ValueError` (hard-fail) for:
@@ -235,7 +235,7 @@ Priority:
 
 ### Medium: Privileged MFA exists but should be policy-enforced, not optional
 
-**Status: ✅ REMEDIATED (2026-03-24)**
+**Status: ??REMEDIATED (2026-03-24)**
 
 Implementation:
 - Added `_ensure_privileged_mfa()` in `app/api/deps_permissions.py`
@@ -267,7 +267,7 @@ Priority:
 
 ### Medium: Browser-session compromise impact is higher than necessary because access tokens live too long
 
-**Status: ✅ REMEDIATED (2026-03-24)**
+**Status: ??REMEDIATED (2026-03-24)**
 
 Implementation:
 - `ACCESS_TOKEN_EXPIRE_MINUTES` changed from 480 (8 hours) to 30 minutes in `app/config.py`
@@ -316,7 +316,7 @@ Priority:
 
 ### Medium: URL document ingestion has no SSRF protection
 
-**Status: ✅ REMEDIATED (2026-03-24)**
+**Status: ??REMEDIATED (2026-03-24)**
 
 Implementation:
 - Added `_validate_external_url()` in `app/services/document_parser.py`
@@ -352,7 +352,7 @@ Priority:
 
 ### Medium: SSO redirect_uri is not validated against a server-side allowlist
 
-**Status: ✅ REMEDIATED (2026-03-24)**
+**Status: ??REMEDIATED (2026-03-24)**
 
 Implementation:
 - Added `_allowed_redirect_uris()` and `_validate_redirect_uri()` in `app/api/v1/endpoints/sso.py`
@@ -381,7 +381,7 @@ Priority:
 
 ### Low-Medium: CORS allows all methods and all headers with credentials
 
-**Status: ✅ REMEDIATED (2026-03-24)**
+**Status: ??REMEDIATED (2026-03-24)**
 
 Implementation:
 - `app/main.py` CORS middleware updated:
@@ -410,7 +410,7 @@ Priority:
 
 ### Low-Medium: Payment webhook handler can leak database errors
 
-**Status: ✅ REMEDIATED (2026-03-24)**
+**Status: ??REMEDIATED (2026-03-24)**
 
 Implementation:
 - Bare `raise` in `app/api/v1/endpoints/payment.py` replaced with `raise HTTPException(status_code=500, detail="Internal server error")`
@@ -499,31 +499,31 @@ The existing SOP, DPA, deletion, backup, and security documentation suggest the 
 
 ## Priority Remediation Plan
 
-### 0 to 14 days — ✅ ALL COMPLETED (2026-03-24)
+### 0 to 14 days ????ALL COMPLETED (2026-03-24)
 
-1. ✅ Replace `localStorage` bearer-token storage with `HttpOnly` secure cookies.
-2. ✅ Add CSRF protection for cookie-authenticated write operations.
-3. ✅ Reduce access-token lifetime and keep refresh rotation server-controlled.
-4. ✅ Enforce MFA for all privileged roles.
-5. ✅ Add SSRF protection helper in `parse_url()` — block private IPs, reserved ranges, non-HTTPS schemes.
-6. ✅ Validate SSO `redirect_uri` against a server-side allowlist before token exchange.
+1. ??Replace `localStorage` bearer-token storage with `HttpOnly` secure cookies.
+2. ??Add CSRF protection for cookie-authenticated write operations.
+3. ??Reduce access-token lifetime and keep refresh rotation server-controlled.
+4. ??Enforce MFA for all privileged roles.
+5. ??Add SSRF protection helper in `parse_url()` ??block private IPs, reserved ranges, non-HTTPS schemes.
+6. ??Validate SSO `redirect_uri` against a server-side allowlist before token exchange.
 
-### 14 to 30 days — ✅ ALL COMPLETED (2026-03-24)
+### 14 to 30 days ????ALL COMPLETED (2026-03-24)
 
-1. ✅ Convert production warnings for insecure bootstrap/admin settings into startup blockers.
-2. ✅ Convert DB SSL mode `require` or `verify-full` into a production requirement.
-3. ✅ Make production scanner and admin IP whitelist enforcement explicit and testable.
-4. ✅ Add deployment smoke tests that fail when these controls are missing.
-5. ✅ Restrict CORS `allow_methods` and `allow_headers` to explicit whitelists.
-6. ✅ Wrap payment webhook commit errors in a generic 500 response instead of bare re-raise.
+1. ??Convert production warnings for insecure bootstrap/admin settings into startup blockers.
+2. ??Convert DB SSL mode `require` or `verify-full` into a production requirement.
+3. ??Make production scanner and admin IP whitelist enforcement explicit and testable.
+4. ??Add deployment smoke tests that fail when these controls are missing.
+5. ??Restrict CORS `allow_methods` and `allow_headers` to explicit whitelists.
+6. ??Wrap payment webhook commit errors in a generic 500 response instead of bare re-raise.
 
-### 30 to 90 days — PARTIALLY COMPLETED
+### 30 to 90 days ??PARTIALLY COMPLETED
 
-1. ✅ Add formal security regression tests for auth, tenant isolation, and admin access boundaries. *(Added `tests/test_auth_security.py`)*
-2. ⬜ Add CSP review and frontend dependency review into release gates.
-3. ⬜ Add periodic secret-rotation and incident-response drills to operational practice.
-4. ⬜ Consider external penetration testing before large enterprise rollout.
-5. ⬜ Add adversarial prompt-injection test suite to complement existing regex-based LLM guardrails.
+1. ??Add formal security regression tests for auth, tenant isolation, and admin access boundaries. *(Added `tests/test_auth_security.py`)*
+2. �?Add CSP review and frontend dependency review into release gates.
+3. �?Add periodic secret-rotation and incident-response drills to operational practice.
+4. �?Consider external penetration testing before large enterprise rollout.
+5. �?Add adversarial prompt-injection test suite to complement existing regex-based LLM guardrails.
 
 ## Bottom Line
 

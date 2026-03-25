@@ -195,7 +195,7 @@ if not chunks and text_content.strip():
 - **OpenAI API Key**: `sk-proj-G3C...` ✅ 已設定，GPT-4o-mini 正常運作
 - **VoyageAI API Key**: `pa-GpSe...` ✅ 已設定，embedding 正常運作
 - **LlamaParse API Key**: `llx-eBnX...` ✅ 已設定，高品質文件解析可用
-- **Core API (unihr)**: `https://ai.unihr.com.tw` ✅ 正常回應
+- **Core API**: `https://api.example.com` ✅ 正常回應
 
 ### ✅ 所有 API 金鑰正確載入
 ```

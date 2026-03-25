@@ -145,15 +145,15 @@ jobs:
             echo "🔍 Running smoke tests..."
 
             # API health
-            curl -sf https://app.unihr.com/health | grep -q '"status":"ok"'
+            curl -sf http://localhost:8080/health | grep -q '"status":"ok"'
             echo "  ✅ API health OK"
 
             # Frontend loads
-            curl -sf -o /dev/null -w "%{http_code}" https://app.unihr.com/ | grep -q "200"
+            curl -sf -o /dev/null -w "%{http_code}" http://localhost:80/ | grep -q "200"
             echo "  ✅ Frontend OK"
 
             # Admin loads
-            curl -sf -o /dev/null -w "%{http_code}" https://admin.unihr.com/ | grep -q "200"
+            curl -sf -o /dev/null -w "%{http_code}" http://localhost:80/login | grep -q "200"
             echo "  ✅ Admin frontend OK"
 
             echo "✅ All smoke tests passed"

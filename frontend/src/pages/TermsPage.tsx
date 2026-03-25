@@ -105,7 +105,7 @@ export default function TermsPage() {
           ))}
 
           <section className="rounded-2xl border border-dashed border-orange-200 bg-orange-50/70 px-6 py-5 text-sm leading-6 text-gray-700">
-            如需企業版主契約、DPA 或 SLA 補充條款，請聯繫 legal@unihr.app。
+            如需企業版主契約、DPA 或 SLA 補充條款，請聯繫 legal@example.com。
           </section>
 
           <div className="flex items-center justify-between gap-4 border-t border-gray-100 pt-6 text-sm text-gray-500">

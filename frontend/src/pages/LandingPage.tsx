@@ -130,7 +130,7 @@ export default function LandingPage() {
               ['多久可以上線？', '一般企業可在同一天完成註冊、上傳制度文件並開始問答。'],
               ['員工能看到其他公司資料嗎？', '不會。平台採多租戶隔離與列級安全控制，資料不會跨公司外洩。'],
               ['是否支援 SSO 與品牌化？', 'Pro 與 Enterprise 方案提供 SSO、品牌設定與更完整管理能力。'],
-              ['如果要導入企業版怎麼開始？', '可先從公開方案試用，或直接透過 sales@unihr.app 聯繫顧問安排導入。'],
+              ['如果要導入企業版怎麼開始？', '可先從公開方案試用，或直接透過 sales@example.com 聯繫顧問安排導入。'],
             ].map(([question, answer]) => (
               <div key={question} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-6 shadow-sm">
                 <h3 className="text-base font-semibold text-gray-900">{question}</h3>
@@ -149,7 +149,7 @@ export default function LandingPage() {
               如果你想評估企業導入、SSO、白標品牌或自訂域名，可以先看方案，也可以直接聯繫我們安排示範。
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
-              <a href="mailto:sales@unihr.app" className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-black">
+              <a href="mailto:sales@example.com" className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-black">
                 聯絡業務
               </a>
               <Link to="/pricing" className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50">
@@ -160,9 +160,9 @@ export default function LandingPage() {
           <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
             <p className="text-sm font-semibold text-gray-900">聯絡資訊</p>
             <div className="mt-4 space-y-3 text-sm text-gray-500">
-              <p>業務信箱：sales@unihr.app</p>
-              <p>客服信箱：support@unihr.app</p>
-              <p>法務與 DPA：privacy@unihr.app</p>
+              <p>業務信箱：sales@example.com</p>
+              <p>客服信箱：support@example.com</p>
+              <p>法務與 DPA：privacy@example.com</p>
             </div>
           </div>
         </div>

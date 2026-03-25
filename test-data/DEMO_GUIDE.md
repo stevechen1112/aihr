@@ -16,7 +16,7 @@
 | **前台（備用）** | http://app.172-237-5-254.sslip.io |
 | **管理後台** | http://admin.172-237-5-254.sslip.io |
 | **API 端點** | http://api.172-237-5-254.sslip.io |
-| **系統監控** | http://grafana.172-237-5-254.sslip.io |
+| **健康檢查** | http://api.172-237-5-254.sslip.io/health |
 
 ### 🔑 測試帳號
 
