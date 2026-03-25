@@ -233,7 +233,6 @@ def refresh_access_token(
     request: Request,
     response: Response,
     body: RefreshTokenRequest | None = None,
-    db: Session = Depends(deps.get_db),
 ) -> Any:
     """
     Exchange a valid refresh token for a new access + refresh token pair.
@@ -273,12 +272,16 @@ def refresh_access_token(
         rc.delete(f"refresh:{jti}")
 
     # Verify user still exists and is active
-    user = crud_user.get_by_email(db, email=email)
-    if not user or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive",
-        )
+    db = SessionLocal()
+    try:
+        user = crud_user.get_by_email(db, email=email)
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive",
+            )
+    finally:
+        db.close()
 
     return _issue_tokens_with_cookies(response, user.email)
 

@@ -53,12 +53,12 @@ npm run test:e2e -- app.spec.ts
 
 ```bash
 npm run build
-python ../scripts/verify_frontend_surface.py --base-url http://127.0.0.1:4173 --dist-dir dist
+npm run verify:surface -- --base-url http://127.0.0.1:4173 --dist-dir dist
 ```
 
 ```powershell
 $env:FRONTEND_VERIFY_BASE_URL="http://172.233.67.81"
-python ..\scripts\verify_frontend_surface.py --dist-dir dist
+npm run verify:surface -- --dist-dir dist
 ```
 
 如果 live 載入的 `index-*.js` / `index-*.css` 與本地 `dist/assets` 不一致，通常代表部署鏈路仍在送舊 bundle，而不是 React 程式碼本身失效。

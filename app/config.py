@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "unihr_saas"
     POSTGRES_SSL_MODE: str = "prefer"  # disable, allow, prefer, require, verify-ca, verify-full
+    DB_CONNECT_TIMEOUT_SECONDS: int = 5
     
     # Redis
     REDIS_HOST: str = "localhost"

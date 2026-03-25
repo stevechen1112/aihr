@@ -43,6 +43,10 @@ if _ssl_mode and _ssl_mode != "disable":
     if _ssl_root_cert:
         _connect_args["sslrootcert"] = _ssl_root_cert
 
+_connect_timeout = int(getattr(settings, "DB_CONNECT_TIMEOUT_SECONDS", 5))
+if _connect_timeout > 0:
+    _connect_args["connect_timeout"] = _connect_timeout
+
 engine = create_engine(
     f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
     f"@{settings.POSTGRES_SERVER}/{settings.POSTGRES_DB}",

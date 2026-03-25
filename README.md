@@ -88,13 +88,13 @@ python scripts/check_local_cloud_parity.py --host 172.233.67.81 --user root --ke
 cd frontend
 npm run build
 npm run test:e2e:public
-python ..\scripts\verify_frontend_surface.py --base-url http://127.0.0.1:4173 --dist-dir dist
+npm run verify:surface -- --base-url http://127.0.0.1:4173 --dist-dir dist
 ```
 
 ```powershell
 cd frontend
 $env:FRONTEND_VERIFY_BASE_URL="http://172.233.67.81"
-python ..\scripts\verify_frontend_surface.py --dist-dir dist
+npm run verify:surface -- --dist-dir dist
 ```
 
 - 這會檢查 `/`、`/pricing`、`/login`、`/signup` 是否共用同一組 Vite entry bundle。

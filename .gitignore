@@ -53,6 +53,9 @@ build/
 node_modules/
 *.log
 *.tsbuildinfo
+frontend/playwright-report/
+frontend/test-results/
+frontend/dist.zip
 
 # ---------- Docker ----------
 *.tar

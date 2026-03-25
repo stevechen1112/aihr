@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:public": "playwright test e2e/auth.spec.ts",
+    "test:e2e:ui": "playwright test --ui",
+    "verify:surface": "node scripts/verify-surface.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",

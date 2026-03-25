@@ -71,3 +71,50 @@ def get_current_active_user(
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
+
+def get_current_user_lazy_db(
+    request: Request,
+    _bearer: Optional[str] = Depends(reusable_oauth2),
+) -> User:
+    token = extract_access_token(request)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        token_data = TokenPayload(**payload)
+    except (jwt.JWTError, ValidationError):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Could not validate credentials",
+        )
+
+    db = SessionLocal()
+    try:
+        user = crud_user.get_by_email(db, email=token_data.sub)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        apply_rls_context(
+            db,
+            tenant_id=getattr(user, "tenant_id", None),
+            bypass=getattr(user, "is_superuser", False),
+        )
+        return user
+    finally:
+        db.close()
+
+
+def get_current_active_user_lazy_db(
+    current_user: User = Depends(get_current_user_lazy_db),
+) -> User:
+    if not current_user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 @router.get("/me", response_model=UserSchema)
 def read_user_me(
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.get_current_active_user_lazy_db),
 ) -> Any:
     """
     獲取當前用戶資訊
