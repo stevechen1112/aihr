@@ -2,6 +2,26 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { authApi, ssoApi, type LoginResponse } from './api'
 import type { User } from './types'
 
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 5000
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs = AUTH_BOOTSTRAP_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error('auth bootstrap timeout'))
+    }, timeoutMs)
+
+    promise
+      .then((value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      })
+      .catch((error) => {
+        window.clearTimeout(timer)
+        reject(error)
+      })
+  })
+}
+
 interface AuthState {
   user: User | null
   token: string | null
@@ -21,13 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUser = useCallback(async () => {
     try {
-      const u = await authApi.me()
+      const u = await withTimeout(authApi.me())
       setUser(u)
       setToken('cookie-session')
     } catch {
       try {
-        await authApi.refresh({ silent: true })
-        const u = await authApi.me()
+        await withTimeout(authApi.refresh({ silent: true }))
+        const u = await withTimeout(authApi.me())
         setUser(u)
         setToken('cookie-session')
       } catch {

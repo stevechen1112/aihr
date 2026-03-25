@@ -3,25 +3,27 @@ import { test, expect } from '@playwright/test'
 test.describe('Login Flow', () => {
   test('public homepage should expose main navigation links', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('link', { name: '方案與價格' })).toBeVisible()
-    await expect(page.getByRole('link', { name: '登入' })).toBeVisible()
-    await expect(page.getByRole('link', { name: '免費開始' })).toBeVisible()
+    const nav = page.getByRole('navigation')
+    await expect(nav.getByRole('link', { name: '方案與價格' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: '登入' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: '免費開始', exact: true })).toBeVisible()
   })
 
   test('public links should navigate between marketing pages', async ({ page }) => {
     await page.goto('/')
-    await page.getByRole('link', { name: '方案與價格' }).click()
+    const nav = page.getByRole('navigation')
+    await nav.getByRole('link', { name: '方案與價格' }).click()
     await expect(page).toHaveURL(/\/pricing$/)
 
     await page.getByRole('link', { name: '隱私權政策' }).last().click()
     await expect(page).toHaveURL(/\/privacy$/)
 
     await page.goto('/')
-    await page.getByRole('link', { name: '免費開始' }).first().click()
+    await nav.getByRole('link', { name: '免費開始', exact: true }).click()
     await expect(page).toHaveURL(/\/signup$/)
 
     await page.goto('/')
-    await page.getByRole('link', { name: '登入' }).click()
+    await nav.getByRole('link', { name: '登入' }).click()
     await expect(page).toHaveURL(/\/login$/)
   })
 
