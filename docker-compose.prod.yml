@@ -316,7 +316,10 @@ services:
       - "80:80"      # Client frontend + API
       - "8080:8080"  # Admin frontend + Admin API
     volumes:
-      - ./nginx/gateway.conf.ip:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/gateway.conf.ip:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/conf.d
+      - ADMIN_SERVICE_TOKEN=${ADMIN_SERVICE_TOKEN}
     depends_on:
       web:
         condition: service_healthy
