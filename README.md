@@ -123,7 +123,7 @@ UniHR 採用**雙層架構**：
 - 租戶配額管理（儲存空間、文件數量、每月查詢次數、Token 用量上限）
 
 ### 帳號與權限
-- 五級角色：`superadmin` → `owner` → `admin` → `employee` → `viewer`
+- 六級角色：`superadmin` → `owner` → `admin` → `hr` → `employee` → `viewer`
 - **HttpOnly cookie 認證**：存取與刷新 token 以 `HttpOnly` / `Secure` / `SameSite=lax` cookie 傳遞，前端無法透過 JavaScript 讀取
 - **CSRF 雙重提交防護**：cookie + header 比對，防止跨站請求偽造
 - JWT + SSO（Google / Microsoft OAuth 2.0，PKCE + HMAC-SHA256 state，Email 自動識別組織）
