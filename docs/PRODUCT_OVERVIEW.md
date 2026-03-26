@@ -91,10 +91,77 @@
 - 支援 4 個部署區域（亞太/北美/歐洲/日本），滿足資料駐留合規要求（PDPA / GDPR / SOC 2 / APPI）
 
 ### 🔒 資訊安全
-- 登入憑證存於 HttpOnly Cookie，JavaScript 無法讀取，防範竊取攻擊
-- CSRF 雙重驗證防護，防止跨站請求偽造
-- 病毒掃描：所有上傳文件均經 ClamAV 掃描
-- 2026-03-23 安全評估得分：**A- / 8.8 分**
+
+#### ✅ 已實作
+
+**認證與 Session**
+- 登入憑證存於 **HttpOnly + Secure + SameSite=Lax Cookie**，JavaScript 無法讀取，防範 XSS 竊取
+- Refresh Token 路徑限縮至 `/api/v1/auth/refresh`，無法被其他端點竊用
+- JWT 採雙 Token 設計：Access Token（30 分鐘）+ Refresh Token（含 jti 唯一碼，可即時撤銷）
+- 密碼以 **bcrypt** 雜湊，自動加鹽，抵抗彩虹表攻擊
+- 密碼強度驗證：最少 8 字元、須含英文字母與數字、常見密碼黑名單
+- **帳號鎖定**：連續 5 次登入失敗自動鎖定 15 分鐘
+- 登入前強制完成 **Email 信箱驗證**
+- 支援 **TOTP 雙重驗證（MFA/TOTP）**，管理角色可啟用
+- **Google / Microsoft SSO** 採 PKCE + HMAC-SHA256 state 簽名，redirect_uri 伺服器端白名單驗證
+
+**存取控制**
+- 六個角色層級 RBAC（superadmin / owner / admin / hr / employee / viewer）
+- FastAPI dependency 統一注入，每個端點均有權限守衛
+- **PostgreSQL Row-Level Security（RLS）**：資料庫層強制租戶隔離，應用層與 DB 層雙重保護
+- Admin 系統管理端點僅限白名單 IP / CIDR 存取
+
+**網路防護**
+- 三層速率限制（IP 層 200r/min、用戶層 60r/min、租戶層 300r/min），濫用自動封鎖 10 分鐘
+- Nginx 層額外限流（Chat 20r/min、Auth 10r/min、一般 60r/min）
+- CORS 強制白名單，生產環境禁止萬用字元 `*`
+- **CSRF 雙重提交防護**（cookie + header 比對），Payment webhook 等路徑合理豁免
+- **SSRF 攻擊封鎖**：外部 URL 呼叫前 DNS 解析驗證，封鎖 Private / Loopback / Link-local IP
+
+**HTTP 安全標頭（Nginx 層）**
+- `Strict-Transport-Security`（HSTS，2 年，含 preload）
+- `X-Frame-Options: DENY`（防止 clickjacking）
+- `X-Content-Type-Options: nosniff`
+- `Content-Security-Policy`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- HTTP 強制重導向 HTTPS，TLS 1.2 / 1.3
+
+**檔案與內容安全**
+- 所有上傳文件均經 **ClamAV 病毒掃描**（fail-closed：掃描失敗則拒絕上傳）
+- **LLM Prompt Injection 護欄**：正則表達式過濾常見注入模式，output 同步過濾敏感內容
+
+**容器與基礎設施**
+- Docker 以**非 root 用戶（unihr）**執行，降低容器逃逸風險
+- 多階段 build：編譯工具不進入 production image
+- 生產環境 DB port 不對外暴露
+
+**稽核與日誌**
+- 完整操作稽核日誌，每筆含 **SHA-256 數位指紋**，DB trigger 阻擋任何 UPDATE / DELETE
+- 保留 **7 年**，滿足合規要求
+
+**生產啟動驗證（13 項強制檢查）**
+- 啟動時自動驗證：SECRET_KEY 強度、DB 密碼、預設帳密未使用、DB SSL 模式、ClamAV 啟用、Admin IP 白名單啟用、CORS 無萬用字元等，任一不符即阻擋服務啟動
+
+---
+
+#### ⚠️ 已識別但尚未修補（待辦）
+
+| 項目 | 風險等級 | 說明 |
+|------|---------|------|
+| **MFA 未強制** | 高 | `MFA_REQUIRED_FOR_PRIVILEGED` 預設關閉，生產啟動驗證未強制要求特權角色啟用 MFA |
+| **Redis 無密碼強制** | 高 | 生產 docker-compose 未以 `:?` 強制設定 Redis 密碼（DB 有，Redis 沒有） |
+| **CSP 含 `unsafe-inline`** | 中 | Nginx gateway.conf 的 `script-src` 含 `'unsafe-inline'`，削弱 XSS 防護，應改用 nonce/hash |
+| **無自動化依賴漏洞掃描** | 中 | 缺乏 Dependabot / Snyk 等 SCA 工具，第三方套件漏洞無法自動告警 |
+| **JWT 使用 HS256 對稱算法** | 中 | 多服務共用同一 SECRET_KEY；建議改用 RS256 非對稱算法 |
+| **Domain 快取無過期時間** | 中 | 自訂域名記憶體快取無 TTL，域名撤銷後需重啟服務才生效 |
+| **PostgreSQL SSL 未強制 verify-full** | 低 | 生產 SSL 模式設 `prefer`（可降級明文），應強制 `verify-full` |
+| **集中化日誌平台缺失** | 低 | 日誌只在容器內，無 Loki / ELK 集中收集，出事溯源困難 |
+| **Nginx Admin IP 白名單為範例** | 低 | `nginx/admin.conf` 的 IP 白名單設定為 commented-out 範例，實際只靠後端中間件 |
+| **最低密碼長度 8 字元** | 低 | NIST SP 800-63B 建議 12 字元以上 |
+
+---
+
+**2026-03-23 安全評估得分：A- / 8.8 分**
 
 ---
 
